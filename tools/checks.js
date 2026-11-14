@@ -252,6 +252,26 @@ window.runChecks = async function () {
   fresh(); G.kills = 120; { const base = performance.now(); last = base; frame(base + 16); frame(base + 32); }
   const toastOk = [...document.querySelectorAll('#toasts .toast')].some(t => /100 quái/.test(t.textContent));
   ok('V5-7', '7.3 Thông báo mốc (100 quái)', toastOk);
+  // ---------- V5 Phase 8: màn kết thúc ----------
+  const bak8 = JSON.stringify(META), ls8 = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_stat', 'vs_stat_nm', 'vs_start'].map(k => [k, localStorage.getItem(k)]);
+  fresh(); G.player.hp = 0; v.tick(0.02); const overNow = G.state === 'over';
+  kd('Enter'); ku('Enter'); const earlyIgnored = G.state === 'over';            // bấm trước khi bảng hiện: bỏ qua
+  openEndPanel(false); dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd', repeat: true })); ku('KeyD', 'd');
+  kd('Enter'); ku('Enter'); const lockIgnored = G.state === 'over';             // trong thời gian khoá ngay sau khi hiện: bỏ qua
+  overShownAt = performance.now() - 1000; kd('Space', ' '); ku('Space', ' '); const finished = G.state === 'over' && !staging; // đang hiện dần: hiện hết
+  const tR = performance.now(); kd('KeyR', 'r'); ku('KeyR', 'r'); const retryMs = performance.now() - tR;
+  const retried = G.state === 'play' && G.t === 0 && G.kills === 0 && !document.getElementById('over').classList.contains('show');
+  ok('V5-8', '8.1 Một phím ở màn kết thúc → ván mới ngay; phím bấm sớm / đang giữ không chơi lại nhầm', overNow && earlyIgnored && lockIgnored && finished && retried && retryMs < 500,
+    `sớm ${earlyIgnored}, khoá ${lockIgnored}, hiện hết ${finished}, chơi lại ${retried} (${retryMs.toFixed(0)} ms)`);
+  for (const [k] of ls8) localStorage.removeItem(k);
+  Object.assign(META, { souls: 0, up: {}, unlocked: ['bolt'], runs: 0, won: false }); delete META.missions; delete META.book;
+  fresh(); G.wave.i = 1; G.kills = 412; G.bossKills = 0; G.evolved = false; G.soulsGiven = 0; endRun(false);
+  const goalsTxt = document.getElementById('rGoals').textContent;
+  ok('V5-8', '8.2 Lưu trắng, 412 quái, tới đợt 2: khối mục tiêu có Hào Quang Độc 412/500 và Dao Bạc vừa mở', /412\/500/.test(goalsTxt) && /Vừa mở: bắt đầu với Dao Bạc/.test(goalsTxt) && /Hào Quang Độc/.test(goalsTxt), goalsTxt.slice(0, 140));
+  for (const k of Object.keys(META)) delete META[k];
+  Object.assign(META, JSON.parse(bak8));
+  for (const [k, val] of ls8) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);
+  fresh(); renderMenu();
   G.state = 'over';
   return out;
 };

@@ -460,15 +460,19 @@ const META_UPGRADES = [
 ];
 // Đổi vận: cấp 2, 4 thêm lượt đổi thẻ; cấp 1, 3, 5 thêm 5% tỉ lệ rơi vật phẩm
 const metaRoll = l => ({ rerolls: (l >= 2) + (l >= 4), item: (l >= 1) + (l >= 3) + (l >= 5) });
-// Mở khoá vũ khí khởi đầu (kiểm ở endRun; r = { wave, kills, bosses, evo })
+// Mở khoá vũ khí khởi đầu (kiểm ở endRun; r = { wave, kills, bosses, evo }).
+// prog(r) = [hiện tại, mục tiêu] trong ván vừa chơi — khối "Sắp đạt được" ở màn kết thúc (V5 Phase 8)
 const UNLOCKS = {
   bolt: null,
-  knife:     { text: 'Đến đợt 2',                  ok: r => r.wave >= 2 },
-  aura:      { text: 'Hạ 500 quái trong một ván',  ok: r => r.kills >= 500 },
-  orbit:     { text: 'Hạ Vua Thây Ma',             ok: r => r.bosses >= 1 },
-  lightning: { text: 'Hạ Đại Pháp Sư Tử Linh',     ok: r => r.bosses >= 2 },
-  nova:      { text: 'Tiến hoá một vũ khí bất kỳ', ok: r => r.evo },
+  knife:     { text: 'Đến đợt 2',                  ok: r => r.wave >= 2,     prog: r => [Math.min(r.wave, 2), 2] },
+  aura:      { text: 'Hạ 500 quái trong một ván',  ok: r => r.kills >= 500,  prog: r => [Math.min(r.kills, 500), 500] },
+  orbit:     { text: 'Hạ Vua Thây Ma',             ok: r => r.bosses >= 1,   prog: r => [Math.min(r.bosses, 1), 1] },
+  lightning: { text: 'Hạ Đại Pháp Sư Tử Linh',     ok: r => r.bosses >= 2,   prog: r => [Math.min(r.bosses, 2), 2] },
+  nova:      { text: 'Tiến hoá một vũ khí bất kỳ', ok: r => r.evo,           prog: r => [r.evo ? 1 : 0, 1] },
 };
+/* Màn kết thúc (V5 Phase 8): bảng hiện sau delay giây; khoá phím `lock` giây sau khi hiện (phím đang giữ / lướt không bấm nhầm);
+   các phần hiện lần lượt mỗi `step` giây (bấm phím trong lúc này = hiện hết ngay). */
+CFG.endPanel = { delayLose: 0.9, delayWin: 1.2, lock: 0.35, step: 0.2 };
 
 // tot(l): tổng cộng dồn ở cấp l (thẻ bị động hiện "+15% → +30%")
 const pctTot = (k, l, sign = '+') => sign + Math.round(Math.abs(k ** l - 1) * 100) + '%';

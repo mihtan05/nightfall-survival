@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0a12">
 <title>Đêm Sinh Tồn</title>
-<link rel="stylesheet" href="css/game.css?v=v5g">
+<link rel="stylesheet" href="css/game.css?v=v5h">
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -105,31 +105,35 @@
 </div>
 
 <div class="overlay" id="over">
-  <div class="panel" style="max-width:600px">
-    <h2 id="overTitle">Bạn đã gục ngã</h2>
-    <div class="result">
-      <div><b id="rWave">1</b><span>Đợt</span></div>
-      <div><b id="rTime">0:00</b><span>Thời gian</span></div>
-      <div><b id="rLvl">1</b><span>Cấp</span></div>
-      <div><b id="rKills">0</b><span>Quái hạ</span></div>
+  <div class="panel endp" id="overPanel">
+    <h2 id="overTitle" class="stg" data-k="title">Bạn đã gục ngã</h2>
+    <div id="rGoals" class="goals stg" data-k="goals"></div>
+    <div id="rTimeline" class="timeline stg" data-k="timeline"></div>
+    <div class="result stg" data-k="stats">
+      <div id="sWave"><b id="rWave">1</b><span>Đợt</span><small></small></div>
+      <div id="sTime"><b id="rTime">0:00</b><span>Thời gian</span><small></small></div>
+      <div id="sLvl"><b id="rLvl">1</b><span>Cấp</span><small></small></div>
+      <div id="sKills"><b id="rKills">0</b><span>Quái hạ</span><small></small></div>
     </div>
-    <div id="rDmg" class="dmglist"></div>
-    <p class="souls gain" id="rSouls" aria-live="polite"></p>
-    <p class="sub unlock" id="rUnlock"></p>
-    <p class="sub" id="rBest"></p>
-    <div class="menubtns"><button class="btn" id="againBtn">Chơi lại</button><button class="btn ghost" id="endlessBtn" hidden>Tiếp tục (vô tận)</button><button class="btn ghost" id="menuBtn">Menu</button></div>
+    <div id="rDmg" class="dmglist stg" data-k="dmg"></div>
+    <div class="stg" data-k="souls">
+      <p class="souls gain" id="rSouls" aria-live="polite"></p>
+      <p class="sub unlock" id="rUnlock"></p>
+      <p class="sub" id="rBest"></p>
+    </div>
+    <div class="menubtns stg" data-k="btns"><button class="btn" id="againBtn">Chơi lại <kbd class="kbd-hint">R</kbd></button><button class="btn ghost" id="endlessBtn" hidden>Tiếp tục (vô tận)</button><button class="btn ghost" id="menuBtn">Menu</button></div>
   </div>
 </div>
 
-<script src="js/util.js?v=v5g"></script>
-<script src="js/atlas.js?v=v5g"></script>
-<script src="js/fx-atlas.js?v=v5g"></script>
-<script src="js/data.js?v=v5g"></script>
-<script src="js/audio.js?v=v5g"></script>
-<script src="js/render.js?v=v5g"></script>
-<script src="js/game.js?v=v5g"></script>
-<script src="js/input.js?v=v5g"></script>
-<script src="js/icons.js?v=v5g"></script>
-<script src="js/ui.js?v=v5g"></script>
+<script src="js/util.js?v=v5h"></script>
+<script src="js/atlas.js?v=v5h"></script>
+<script src="js/fx-atlas.js?v=v5h"></script>
+<script src="js/data.js?v=v5h"></script>
+<script src="js/audio.js?v=v5h"></script>
+<script src="js/render.js?v=v5h"></script>
+<script src="js/game.js?v=v5h"></script>
+<script src="js/input.js?v=v5h"></script>
+<script src="js/icons.js?v=v5h"></script>
+<script src="js/ui.js?v=v5h"></script>
 </body>
 </html>

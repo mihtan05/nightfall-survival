@@ -18,7 +18,7 @@ Kế hoạch v5 cho "Đêm Sinh Tồn". Mỗi phase bên dưới là **một pro
 | 5 | Âm thanh: tìm nguồn CC0 trên web, lập danh sách xin duyệt | S | — | chưa làm |
 | 6 | Âm thanh: tải, trang nghe thử, phối âm | L | 5 + duyệt | chưa làm |
 | 7 | Phần thưởng trong ván: combo, rương, mốc, hút ngọc | M | 2 | **xong** |
-| 8 | Màn kết thúc kéo người chơi vào ván sau | M | — | chưa làm |
+| 8 | Màn kết thúc kéo người chơi vào ván sau | M | — | **xong** |
 | 9 | Nhiệm vụ, sổ tay sưu tầm, menu sống động | M | 8 | chưa làm |
 | 10 | (Tuỳ chọn, cần tải) sprite riêng cho quái biến thể + nhân vật mới | M | 1 + duyệt | chưa làm |
 

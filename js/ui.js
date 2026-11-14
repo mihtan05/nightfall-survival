@@ -290,8 +290,11 @@ function grantMeta() {
   return { gain, fresh };
 }
 let soulAnim = 0;
-function showSouls(gain, fresh) {
-  const el = $('rSouls'), t0 = performance.now(), dur = REDUCED_MOTION ? 0 : CFG.souls.countUp * 1000, id = ++soulAnim;
+// Đếm linh hồn tăng dần; finish = hiện ngay số cuối (bấm phím trong lúc màn kết thúc đang hiện dần)
+let soulGain = 0, lastFresh = [];
+function showSouls(gain, fresh, finish = false) {
+  const el = $('rSouls'), t0 = performance.now(), dur = REDUCED_MOTION || finish ? 0 : CFG.souls.countUp * 1000, id = ++soulAnim;
+  soulGain = gain;
   const step = now => {
     if (id !== soulAnim) return;
     const k = dur ? Math.min(1, (now - t0) / dur) : 1;
@@ -518,6 +521,7 @@ function togglePause() {
 
 function startGame() {
   SFX.init();
+  clearTimeout(overTimer); stageTimers.forEach(clearTimeout); stageTimers = []; staging = false; overShownAt = Infinity;
   resetWorld();
   hudLevel = 1; lowOn = false; xpCarrying = false; document.body.classList.remove('lowhp'); comboEl.className = ''; comboShown = -1;
   toastQ.length = 0; toastDone.clear(); toastNext = toastCheckT = 0; $('toasts').replaceChildren(); waveCardFor = -1; runBest = store.get(bestKey(), { time: 0 });
@@ -536,16 +540,133 @@ function endRun(won) {
   const run = { time: G.t, kills: G.kills, level: G.level, wave, won: won || G.endless };
   const key = G.nm ? 'vs_best_nm' : 'vs_best', prev = store.get(key, { time: 0 });
   const newBest = score(run) > score(prev);
+  renderStatBests(run);   // trước khi ghi vs_best (lần đầu kỷ lục từng chỉ số lấy từ vs_best cũ)
   if (newBest) { store.set(key, run); if (!G.nm) G.best = run; }
-  const { gain, fresh } = grantMeta(); showSouls(gain, fresh);
+  const { gain, fresh } = grantMeta(); lastFresh = fresh; showSouls(gain, fresh, true);
   $('overTitle').textContent = won ? 'Bạn đã đánh bại Chúa Tể Bóng Đêm!' : G.endless ? `Gục ngã ở đợt ${wave} (vô tận)` : 'Bạn đã gục ngã';
   $('rWave').textContent = won ? '★' : waveLabel(G.wave.i);
   $('endlessBtn').hidden = !won;
   $('rTime').textContent = fmtTime(G.t); $('rLvl').textContent = G.level; $('rKills').textContent = G.kills;
   $('rBest').textContent = newBest ? 'Kỷ lục mới!' : '';
   renderDmgList($('rDmg'));
+  renderTimeline(won);
+  renderGoals(fresh);
   updateBestTxt();
-  setTimeout(() => show('over', true), won ? 1200 : 900);
+  prepEndPanel(won);
+  const myRun = G.player, E = CFG.endPanel;
+  clearTimeout(overTimer);
+  overTimer = setTimeout(() => { if (G.state === 'over' && G.player === myRun) openEndPanel(won); }, (won ? E.delayWin : E.delayLose) * 1000);
+}
+
+/* ---------- V5 Phase 8: màn kết thúc kéo vào ván sau ---------- */
+let overTimer = 0, overShownAt = Infinity, stageTimers = [], staging = false;
+const statKey = () => G.nm ? 'vs_stat_nm' : 'vs_stat';
+// Kỷ lục từng chỉ số (đợt, thời gian, cấp, quái): hiện kỷ lục cũ bên cạnh + nhãn KỶ LỤC khi vượt; lưu cạnh vs_best / vs_best_nm
+function renderStatBests(run) {
+  const seed = store.get(G.nm ? 'vs_best_nm' : 'vs_best', {});  // lần đầu: lấy từ kỷ lục cả ván đã có
+  const prev = store.get(statKey(), null) || { wave: seed.wave || 0, time: seed.time || 0, level: seed.level || 0, kills: seed.kills || 0 };
+  const rows = [['sWave', 'wave', v => v > WAVE_DEFS.length ? 'đợt ' + v : 'đợt ' + v], ['sTime', 'time', fmtTime], ['sLvl', 'level', v => 'cấp ' + v], ['sKills', 'kills', v => v + ' quái']];
+  const next = { ...prev };
+  for (const [id, k, fmt] of rows) {
+    const box = $(id), sm = box.querySelector('small'), beat = prev[k] > 0 && run[k] > prev[k];
+    box.classList.toggle('rec', beat);
+    sm.textContent = beat ? `KỶ LỤC · cũ ${fmt(prev[k])}` : prev[k] > 0 ? `Kỷ lục: ${fmt(prev[k])}` : '';
+    next[k] = Math.max(prev[k] || 0, run[k]);
+  }
+  store.set(statKey(), next);
+}
+// Dòng thời gian: các đợt đã qua (icon boss đã hạ), đợt đang đánh tới đâu, và chỗ gục ngã + nguồn đòn cuối
+function renderTimeline(won) {
+  const box = $('rTimeline'); box.replaceChildren();
+  const n = Math.max(WAVE_DEFS.length, G.wave.i + 1), w = G.wave;
+  for (let i = 0; i < n; i++) {
+    const done = won || i < w.i || (i === w.i && (w.phase === 'rest' || w.phase === 'won'));
+    const seg = mkEl('div', 'seg' + (done ? ' done' : i === w.i ? ' cur' : ''));
+    seg.append(mkEl('span', 'wl', 'Đợt ' + (i + 1)));
+    const bar = mkEl('i', 'fill'); seg.append(bar);
+    const def = i < WAVE_DEFS.length ? WAVE_DEFS[i] : WAVE_DEFS[WAVE_DEFS.length - 1];
+    let k = done ? 1 : 0;
+    if (!done && i === w.i) k = w.phase === 'fight' ? Math.min(0.8, w.t / def.dur * 0.8) : 0.9;  // 80% là giao tranh, 20% cuối là boss
+    bar.style.width = (k * 100).toFixed(0) + '%';
+    const boss = mkEl('span', 'boss' + (done ? ' on' : '')); boss.append(iconEl('ui_kill', '☠')); boss.title = done ? 'Đã hạ boss' : 'Boss'; seg.append(boss);
+    if (!done && i === w.i && !won) {
+      const m = mkEl('span', 'dead'); m.style.left = clamp(k * 100, 18, 82).toFixed(0) + '%';
+      m.append(mkEl('b', '', '✕'), mkEl('em', '', G.stats.last ? 'Gục vì ' + srcName(G.stats.last) : 'Gục ngã'));
+      seg.append(m);
+    }
+    box.append(seg);
+  }
+}
+/* "Sắp đạt được": vũ khí khởi đầu sắp mở (tiến độ thật trong ván này), nâng cấp vĩnh viễn rẻ nhất (thiếu bao nhiêu / nút mua ngay),
+   và (Phase 9) nhiệm vụ đang làm. */
+function goalRow(label, cur, max, extra) {
+  const r = mkEl('div', 'goal'); r.append(mkEl('span', 'gl', label));
+  if (max) { const b = mkEl('span', 'gbar'), f = mkEl('i'); f.style.width = clamp(cur / max * 100, 0, 100).toFixed(0) + '%'; b.append(f); r.append(b, mkEl('b', '', `${cur}/${max}`)); }
+  if (extra) r.append(extra);
+  return r;
+}
+function renderGoals(fresh) {
+  const box = $('rGoals'); box.replaceChildren(); box.append(mkEl('h3', '', 'Sắp đạt được'));
+  const r = { wave: G.wave.i + 1, kills: G.kills, bosses: G.bossKills, evo: G.evolved };
+  for (const id of fresh) { const d = mkEl('div', 'goal done'); d.append(iconEl(id, WEAPONS[id].icon), mkEl('span', 'gl', `Vừa mở: bắt đầu với ${WEAPONS[id].name}`), mkEl('b', '', '✓')); box.append(d); }
+  let best = null;
+  for (const [id, u] of Object.entries(UNLOCKS)) {
+    if (!u || META.unlocked.includes(id)) continue;
+    const [c, m] = u.prog(r); if (!best || c / m > best.c / best.m) best = { id, u, c, m };
+  }
+  if (best) { const row = goalRow(`${WEAPONS[best.id].name} — ${best.u.text}`, best.c, best.m); row.prepend(iconEl(best.id, WEAPONS[best.id].icon)); box.append(row); }
+  let cheap = null;
+  for (const m of META_UPGRADES) { const lv = metaLv(m.id), cost = CFG.metaCost[lv]; if (cost !== undefined && (!cheap || cost < cheap.cost)) cheap = { m, lv, cost }; }
+  if (cheap) {
+    const { m, lv, cost } = cheap, ic = iconEl(m.icon, m.glyph);
+    if (META.souls >= cost) {
+      const b = mkEl('button', 'btn buy', `Mua · ${cost}`); b.type = 'button';
+      b.addEventListener('click', () => { if (buyMeta(m.id)) renderGoals([]); });
+      const row = goalRow(`${m.name} cấp ${lv + 1}: ${m.desc(lv + 1)}`, 0, 0, b); row.prepend(ic); box.append(row);
+    } else { const row = goalRow(`Còn thiếu ${cost - META.souls} linh hồn để mua ${m.name} cấp ${lv + 1}`, META.souls, cost); row.prepend(ic); box.append(row); }
+  }
+  if (typeof renderMissionGoals === 'function') renderMissionGoals(box);
+  if (box.children.length === 1) box.append(mkEl('p', 'sub', 'Đã mở hết vũ khí và nâng cấp. Thử Ác mộng hoặc vô tận!'));
+}
+// Trình tự hiện: thua → tiêu đề, mục tiêu, dòng thời gian, chỉ số, sát thương, linh hồn, nút; thắng → tiêu đề, nút (Tiếp tục vô tận), …, mục tiêu
+function stageOrder(won) { return won ? ['title', 'btns', 'timeline', 'stats', 'dmg', 'souls', 'goals'] : ['title', 'goals', 'timeline', 'stats', 'dmg', 'souls', 'btns']; }
+function prepEndPanel(won) {
+  stageTimers.forEach(clearTimeout); stageTimers = []; staging = false; overShownAt = Infinity;
+  const panel = $('overPanel'); panel.classList.toggle('win', won);
+  stageOrder(won).forEach((k, i) => { const e = panel.querySelector(`[data-k="${k}"]`); e.style.order = i; e.classList.remove('in'); });
+  soulAnim++; $('rSouls').textContent = '';   // dừng bộ đếm cũ; đếm lại khi tới lượt phần "linh hồn"
+}
+function openEndPanel(won) {
+  const panel = $('overPanel'), E = CFG.endPanel;
+  show('over', true); overShownAt = performance.now(); staging = true; panel.scrollTop = 0;
+  const focusBtn = won ? $('endlessBtn') : $('againBtn');
+  stageOrder(won).forEach((k, i) => stageTimers.push(setTimeout(() => {
+    panel.querySelector(`[data-k="${k}"]`).classList.add('in');
+    if (k === 'souls') showSouls(soulGain, lastFresh);
+    if (k === 'btns') focusBtn.focus({ preventScroll: true });
+    if (i === stageOrder(won).length - 1) staging = false;
+  }, REDUCED_MOTION ? 0 : i * E.step * 1000)));
+}
+// Bấm phím trong lúc đang hiện dần: hiện hết ngay, đếm linh hồn xong luôn
+function finishStaging() {
+  if (!staging) return false;
+  stageTimers.forEach(clearTimeout); stageTimers = []; staging = false;
+  const panel = $('overPanel'); panel.querySelectorAll('.stg').forEach(e => e.classList.add('in'));
+  showSouls(soulGain, lastFresh, true);
+  (G.won ? $('endlessBtn') : $('againBtn')).focus({ preventScroll: true });
+  return true;
+}
+/* Phím ở màn kết thúc (gọi từ input.js). Trả về true nếu đã xử lý.
+   - Trước khi bảng hiện + CFG.endPanel.lock giây: bỏ qua (phím đang giữ / vừa bấm lướt không chơi lại nhầm).
+   - Đang hiện dần: hiện hết. - Sau đó: R = chơi lại; Enter/Space = bấm nút đang chọn (mặc định "Chơi lại"). */
+function endPanelKey(code) {
+  if (G.state !== 'over' || metaOpen()) return false;
+  if (!/^(Enter|NumpadEnter|Space|KeyR)$/.test(code)) return false;
+  if (performance.now() < overShownAt + CFG.endPanel.lock * 1000) return true;
+  if (finishStaging()) return true;
+  const b = document.activeElement;
+  if (code !== 'KeyR' && b && b.tagName === 'BUTTON' && b.closest('#over') && !b.hidden) b.click(); else startGame();
+  return true;
 }
 
 $('startBtn').addEventListener('click', startGame);

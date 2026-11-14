@@ -425,7 +425,7 @@ function hurtPlayer(dmg, src = '?') {
     return;
   }
   const lost = Math.min(p.hp, Math.max(1, dmg - p.armor));
-  p.hp -= lost; G.stats.taken[src] = (G.stats.taken[src] || 0) + lost;
+  p.hp -= lost; G.stats.taken[src] = (G.stats.taken[src] || 0) + lost; G.stats.last = src; // nguồn đòn cuối: màn kết thúc ghi "gục vì …"
   p.iframe = CFG.player.iframe; p.hurtT = 0.3; addShake(6);
   hitStop(CFG.hurt.stop); G.flashT = 0.12; G.flashColor = '#ff3b5c';
   pushAround(p.x, p.y, CFG.hurt.pushR, CFG.hurt.push, '#ffffff');

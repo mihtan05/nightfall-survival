@@ -586,10 +586,11 @@ function renderStatBests(run) {
 // Dòng thời gian: các đợt đã qua (icon boss đã hạ), đợt đang đánh tới đâu, và chỗ gục ngã + nguồn đòn cuối
 function renderTimeline(won) {
   const box = $('rTimeline'); box.replaceChildren();
-  const n = Math.max(WAVE_DEFS.length, G.wave.i + 1), w = G.wave;
+  const w = G.wave, deadAt = won ? -1 : w.phase === 'rest' ? w.i + 1 : w.i;   // gục lúc nghỉ giữa đợt → dấu ✕ ở đầu đợt sau
+  const n = Math.max(WAVE_DEFS.length, deadAt + 1, w.i + 1);
   for (let i = 0; i < n; i++) {
     const done = won || i < w.i || (i === w.i && (w.phase === 'rest' || w.phase === 'won'));
-    const seg = mkEl('div', 'seg' + (done ? ' done' : i === w.i ? ' cur' : ''));
+    const seg = mkEl('div', 'seg' + (done ? ' done' : i === deadAt ? ' cur' : ''));
     seg.append(mkEl('span', 'wl', 'Đợt ' + (i + 1)));
     const bar = mkEl('i', 'fill'); seg.append(bar);
     const def = i < WAVE_DEFS.length ? WAVE_DEFS[i] : WAVE_DEFS[WAVE_DEFS.length - 1];
@@ -597,7 +598,7 @@ function renderTimeline(won) {
     if (!done && i === w.i) k = w.phase === 'fight' ? Math.min(0.8, w.t / def.dur * 0.8) : 0.9;  // 80% là giao tranh, 20% cuối là boss
     bar.style.width = (k * 100).toFixed(0) + '%';
     const boss = mkEl('span', 'boss' + (done ? ' on' : '')); boss.append(iconEl('ui_kill', '☠')); boss.title = done ? 'Đã hạ boss' : 'Boss'; seg.append(boss);
-    if (!done && i === w.i && !won) {
+    if (!done && i === deadAt) {
       const m = mkEl('span', 'dead'); m.style.left = clamp(k * 100, 18, 82).toFixed(0) + '%';
       m.append(mkEl('b', '', '✕'), mkEl('em', '', G.stats.last ? 'Gục vì ' + srcName(G.stats.last) : 'Gục ngã'));
       seg.append(m);

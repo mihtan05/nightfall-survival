@@ -1,0 +1,4 @@
+.claude/scheduled_tasks.lock
+vendor/
+__pycache__/
+*.pyc

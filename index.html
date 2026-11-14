@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0a12">
+<title>Đêm Sinh Tồn</title>
+<link rel="stylesheet" href="css/game.css?v=v5d">
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="lowhp"></div>
+<div id="cineTop"></div><div id="cineBot"></div>
+
+<div id="hud">
+  <div id="xpbar"><div id="xpfill"></div><div id="lvl">Lv 1</div></div>
+  <div id="topleft">
+    <div id="hpbar"><div id="hpfill"></div><span id="hpTxt">120/120</span></div>
+    <div id="stats"><span class="ico" data-icon="ui_kill"></span><b id="killTxt">0</b></div>
+    <div id="owned"><div class="row" id="ownedW"></div><div class="row" id="ownedP"></div></div>
+  </div>
+  <div id="center">
+    <div id="timer">00:00</div>
+    <div id="waveTxt">ĐỢT 1/4</div>
+    <div id="waveBar"><i id="waveFill"></i></div>
+  </div>
+  <div id="btns">
+    <button class="icon" id="fsBtn" tabindex="-1" title="Toàn màn hình" aria-label="Toàn màn hình"><span class="ico" data-icon="ui_fs"></span></button>
+    <button class="icon" id="muteBtn" tabindex="-1" title="Tắt/bật âm (M)" aria-label="Tắt/bật âm"><span class="ico" data-icon="ui_sound"></span></button>
+    <button class="icon" id="pauseBtn" tabindex="-1" title="Tạm dừng (Esc)" aria-label="Tạm dừng"><span class="ico" data-icon="ui_pause"></span></button>
+  </div>
+  <div id="buffs"></div>
+  <div id="banner"></div>
+  <div id="bossbar"><div class="nm" id="bossName"></div><div class="bar"><div id="bossghost"></div><div id="bossfill"></div></div></div>
+  <div id="bossCard"><b></b><i></i><span></span></div>
+  <div id="fps"></div>
+</div>
+<div id="joy"><div id="knob"></div></div>
+<button id="dashBtn" tabindex="-1" aria-label="Lướt né"><span>LƯỚT</span></button>
+
+<div class="overlay show" id="menu">
+  <div class="panel">
+    <h1>ĐÊM SINH TỒN</h1>
+    <p class="sub">Vượt qua 4 đợt quái đêm, mỗi đợt kết thúc bằng một boss có kỹ năng riêng.<br>
+      Vũ khí tự tấn công · nhặt ngọc để lên cấp · phá thùng gỗ để lấy vật phẩm.</p>
+    <p class="sub kbd-hint">Di chuyển: <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> · <kbd>Space</kbd> lướt né · <kbd>Esc</kbd> tạm dừng · <kbd>M</kbd> tắt tiếng<br>
+      <small>Phím không ăn? Tắt bộ gõ tiếng Việt (Unikey/EVKey) hoặc dùng phím mũi tên.</small></p>
+    <p class="sub touch-hint">Kéo ngón tay trên màn hình để di chuyển. Nút tròn bên phải để lướt né.</p>
+    <div class="startpick" id="startPick" role="radiogroup" aria-label="Vũ khí khởi đầu"></div>
+    <p class="sub hint" id="startHint" aria-live="polite"></p>
+    <label class="nmtoggle" id="nmWrap" hidden><input type="checkbox" id="optNm"> <span>Ác mộng</span> <small>quái máu ×1.5 · sát thương ×1.3 · linh hồn ×1.5</small></label>
+    <div class="menubtns"><button class="btn" id="startBtn">Bắt đầu</button><button class="btn ghost" id="metaBtn">Nâng cấp vĩnh viễn</button></div>
+    <p class="sub souls" id="soulTxt"></p>
+    <p class="sub" id="bestTxt" style="margin-bottom:0"></p>
+  </div>
+</div>
+
+<div class="overlay" id="meta">
+  <div class="panel wide">
+    <h2>Nâng cấp vĩnh viễn</h2>
+    <p class="sub souls">Linh hồn: <b id="mSouls">0</b></p>
+    <div class="metagrid" id="metaGrid"></div>
+    <div class="menubtns"><button class="btn ghost" id="metaBack">Quay lại</button><button class="linkbtn" id="metaReset" type="button">Đặt lại</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="levelup">
+  <div class="panel">
+    <h2 id="luTitle">Lên cấp!</h2>
+    <p class="sub kbd-hint" style="margin:0">Chọn một nâng cấp (phím <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> · <kbd>R</kbd> đổi thẻ)</p>
+    <div class="cards" id="cards"></div>
+    <button class="btn ghost" id="rerollBtn">Đổi thẻ (2)</button>
+  </div>
+</div>
+
+<div class="overlay" id="paused">
+  <div class="panel wide">
+    <h2>Tạm dừng</h2>
+    <p class="sub kbd-hint">Nhấn <kbd>Esc</kbd> để chơi tiếp</p>
+    <div class="pausegrid">
+      <section><h3>Trang bị</h3><div id="pEquip" class="equip"></div></section>
+      <section><h3>Chỉ số</h3><dl id="pStats" class="statlist"></dl></section>
+      <section class="wide"><div id="pDmg" class="dmglist"></div></section>
+      <section><h3>Cài đặt</h3>
+        <label class="opt vol">Nhạc <input type="range" id="optMusic" min="0" max="100" step="5"> <output id="optMusicV"></output></label>
+        <label class="opt vol">Hiệu ứng <input type="range" id="optSfx" min="0" max="100" step="5"> <output id="optSfxV"></output></label>
+        <label class="opt"><input type="checkbox" id="optShake"> Rung màn hình</label>
+      </section>
+    </div>
+    <button class="btn" id="resumeBtn">Chơi tiếp</button>
+  </div>
+</div>
+
+<div class="overlay" id="over">
+  <div class="panel" style="max-width:600px">
+    <h2 id="overTitle">Bạn đã gục ngã</h2>
+    <div class="result">
+      <div><b id="rWave">1</b><span>Đợt</span></div>
+      <div><b id="rTime">0:00</b><span>Thời gian</span></div>
+      <div><b id="rLvl">1</b><span>Cấp</span></div>
+      <div><b id="rKills">0</b><span>Quái hạ</span></div>
+    </div>
+    <div id="rDmg" class="dmglist"></div>
+    <p class="souls gain" id="rSouls" aria-live="polite"></p>
+    <p class="sub unlock" id="rUnlock"></p>
+    <p class="sub" id="rBest"></p>
+    <div class="menubtns"><button class="btn" id="againBtn">Chơi lại</button><button class="btn ghost" id="endlessBtn" hidden>Tiếp tục (vô tận)</button><button class="btn ghost" id="menuBtn">Menu</button></div>
+  </div>
+</div>
+
+<script src="js/util.js?v=v5d"></script>
+<script src="js/atlas.js?v=v5d"></script>
+<script src="js/fx-atlas.js?v=v5d"></script>
+<script src="js/data.js?v=v5d"></script>
+<script src="js/audio.js?v=v5d"></script>
+<script src="js/render.js?v=v5d"></script>
+<script src="js/game.js?v=v5d"></script>
+<script src="js/input.js?v=v5d"></script>
+<script src="js/icons.js?v=v5d"></script>
+<script src="js/ui.js?v=v5d"></script>
+</body>
+</html>

@@ -206,6 +206,18 @@ window.runChecks = async function () {
   Object.assign(META, JSON.parse(metaBak)); Object.assign(SETUP, setupBak);
   for (const [k, val] of lsBak) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);
   renderMenu();
+  // ---------- V5 Phase 3: vũ khí đổi hình theo cấp ----------
+  fresh(); const tiers = [1, 3, 4, 7, 8].map(l => { G.player.weapons = {}; G.player.levels = {}; v.give('bolt', l); return weaponTier(G.player.weapons.bolt); });
+  v.evolve('bolt'); tiers.push(weaponTier(G.player.weapons.bolt));
+  ok('V5-3', '3.0 Bậc hình: cấp 1/3 → 1, 4/7 → 2, 8 → 3, tiến hoá → 4', tiers.join() === '1,1,2,2,3,4', tiers.join());
+  fresh(); const tg3 = spawnEnemy('skeleton', P().x + 80, P().y); tg3.speed = 0; tg3.hp = tg3.maxHp = 1e6;
+  G.player.weapons.bolt.timer = 5; const nb0 = G.bullets.items.length; G.pending = 1; G.state = 'levelup';
+  G.choices = [UPGRADES.find(u => u.id === 'bolt')]; v.choose(G.choices[0]); update(CFG.step);
+  ok('V5-3', '3.1 Chọn thẻ nâng vũ khí → bắn ngay trong 1 bước', G.bullets.items.length > nb0 && G.player.levels.bolt === 2, `${nb0} → ${G.bullets.items.length} tiễn`);
+  fresh(); G.player.weapons = {}; G.player.levels = {}; v.give('lightning', 8);
+  for (let i = 0; i < 20; i++) { const e = spawnEnemy('skeleton', P().x + rand(-100, 100), P().y + rand(-80, 80)); e.speed = 0; e.hp = e.maxHp = 1e6; }
+  let decMax = 0; for (let i = 0; i < 300; i++) { v.tick(0.05); decMax = Math.max(decMax, G.decals.length); for (let k = 0; k < 5; k++) addDecal('scorch', 0, 0, 10, 5); }
+  ok('V5-3', '3.2 Vết trên nền có giới hạn', decMax <= CFG.decals.cap && decMax > 0, `${decMax}/${CFG.decals.cap}`);
   G.state = 'over';
   return out;
 };

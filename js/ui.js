@@ -255,11 +255,24 @@ function choose(u, force) {
   const p = G.player, l = (p.levels[u.id] || 0) + 1;
   if (u.kind !== 'item') p.levels[u.id] = l;
   u.apply(p, l);
+  upgradeCue(u);
   G.pending--; SFX.play('select'); renderOwned();
   p.iframe = Math.max(p.iframe, 0.5); // vừa đóng bảng chọn: 0.5 giây bất tử để định hướng lại
   show('levelup', false);
   G.state = 'play';
   if (G.pending > 0) openLevelUp(); else G.chestOpen = false;
+}
+
+/* Khoảnh khắc nâng cấp vũ khí (V5 Phase 3): vòng màu vũ khí quanh người, icon bay lên, và vũ khí bắn NGAY
+   (đặt hồi chiêu về 0) để người chơi thấy luôn cái vừa mua. */
+function upgradeCue(u) {
+  if (u.kind !== 'weapon' && u.kind !== 'evo') return;
+  const p = G.player, w = p.weapons[u.id], L = WEAPON_LOOK[u.id]; if (!w || !L) return;
+  w.timer = 0;
+  const f = addFx('ring', p.x, p.y, CFG.upgradeCue.ringLife); f.maxR = CFG.upgradeCue.ring; f.color = weaponLook(w).col;
+  const el = document.createElement('div'); el.className = 'upfloat'; el.style.setProperty('--c', weaponLook(w).col);
+  el.append(iconEl(u.id, WEAPONS[u.id].icon)); document.getElementById('hud').append(el);
+  setTimeout(() => el.remove(), 1000);
 }
 
 /* ---------- Bảng sát thương theo vũ khí (kết thúc + tạm dừng) ---------- */

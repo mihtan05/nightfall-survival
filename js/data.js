@@ -236,7 +236,9 @@ const WEAPONS = {
         const ang = Math.atan2(t.y - p.y, t.x - p.x) + (extra ? (extra % 2 ? 1 : -1) * Math.ceil(extra / 2) * 0.18 : 0);
         const bl = fireBullet('bolt', p.x, p.y - 4, ang, w.speed, w.life, w.dmg * dmgMul(p), w.pierce, w.r * Math.sqrt(p.mArea), 1);
         if (w.evo) { bl.evo = true; bl.split = true; }
+        lookBullet(bl, w);
       }
+      const a0 = Math.atan2(targets[0].y - p.y, targets[0].x - p.x); castCue(w, p.x + Math.cos(a0) * 12, p.y - 4 + Math.sin(a0) * 12); // loé phía trước, không che mặt
       SFX.play('shoot');
     },
   },
@@ -263,7 +265,7 @@ const WEAPONS = {
           if (e.dead || e.orbCd > 0) continue;
           const rr = e.r + r;
           if ((e.x - ox) ** 2 + (e.y - oy) ** 2 < rr * rr) {
-            e.orbCd = w.hitCd; hitEnemy(e, w.dmg * dmgMul(p), e.x - p.x, e.y - p.y, 0.7, 'claw', 'orbit'); SFX.play('orb');
+            e.orbCd = w.hitCd; hitEnemy(e, w.dmg * dmgMul(p), e.x - p.x, e.y - p.y, 0.7, 'claw', 'orbit', weaponLook(w).impact); SFX.play('orb');
           }
         }
       }
@@ -290,7 +292,7 @@ const WEAPONS = {
       for (let i = 0; i < w.count; i++) {
         const b = G.boss, bossOn = b && !b.dead && Math.abs(b.x - p.x) < VW / 2 && Math.abs(b.y - p.y) < VH / 2;
         const t = i === 0 && bossOn ? b : cands[Math.floor(Math.random() * cands.length)];
-        strike(t.x, t.y, w.dmg * dmgMul(p), w.aoe * p.mArea, 'lightning');
+        strike(t.x, t.y, w.dmg * dmgMul(p), w.aoe * p.mArea, 'lightning', w);
         if (w.evo) chainLightning(t, w.dmg * dmgMul(p));
       }
     },
@@ -315,7 +317,9 @@ const WEAPONS = {
         const off = (i - (w.count - 1) / 2) * 9;
         const kb = fireBullet('knife', p.x + nx * off, p.y + ny * off, ang, w.speed, w.life, w.dmg * dmgMul(p), w.pierce, w.r, 0.5);
         if (w.evo) kb.ret = 1; // bay hết tầm thì quay về
+        lookBullet(kb, w);
       }
+      castCue(w, p.x + p.dirX * 14, p.y + p.dirY * 14);
       SFX.play('knife');
     },
   },
@@ -349,12 +353,64 @@ const WEAPONS = {
       w.timer -= dt; if (w.timer > 0) return;
       w.timer = w.cd * p.mCd;
       for (let i = 0; i < w.count; i++) fireNova(w, p, i * 0.25);
+      castCue(w, p.x, p.y + 11); // loé dưới chân
     },
   },
 };
 
 /* Tiến hoá: vũ khí cấp 8 + bị động ghép đôi đạt CFG.evo.passiveLvl → lần lên cấp sau thẻ đầu là tiến hoá.
    Thông số hành vi đặc biệt nằm ở CFG.evo. */
+/* ---------- V5 Phase 3: vũ khí đổi hình theo cấp (CHỈ là hình ảnh — bán kính trúng, sát thương, hồi chiêu giữ nguyên) ----------
+   Bậc 1 = cấp 1–3, bậc 2 = cấp 4–7, bậc 3 = cấp 8, bậc 4 = đã tiến hoá. Ranh giới ở CFG.tiers (cấp bắt đầu bậc 2 / bậc 3). */
+CFG.tiers = { t2: 4, t3: 8 };
+CFG.decals = { cap: 40 };            // vết trên nền (cháy sém, nứt đất): tối đa bấy nhiêu cùng lúc, cũ nhất bị bỏ trước
+CFG.upgradeCue = { ring: 70, ringLife: 0.45 }; // lúc chọn thẻ vũ khí: vòng màu vũ khí quanh người (bán kính, giây)
+/* Bảng hình dáng: mỗi vũ khí một màu chủ đạo (col, dùng cho vòng lên cấp + loé khi bắn) và 4 bậc. Trường chung:
+     col/col2 = màu chính/phụ · trail = độ dài vệt (đơn vị thế giới) · grow = phần cộng thêm cho MỖI cấp trong cùng bậc
+     size = hệ số cỡ hình · impact = hệ số cỡ hiệu ứng trúng đòn · parts = số hạt · glow = tên quầng sáng (GLOW_COLORS) hoặc null
+   Trường riêng: sparks (tia lửa sau tiễn), after (bóng mờ phía sau), arc (cung kéo sau lưỡi, radian), ring (độ đậm vòng liền),
+     branch (nhánh sét phụ), scorch (cỡ vết cháy, ×vùng nổ), flash (loé màn hình, độ đậm), ring2 (vòng đứt nét bên trong),
+     pulse (sóng theo nhịp gây sát thương), double (vòng sóng thứ 2), dust (hạt bụi tung lên), cracks (cỡ vết nứt, ×bán kính),
+     glint (lấp lánh ở mũi dao), ghost (số bóng mờ dao). */
+const WEAPON_LOOK = {
+  bolt: { col: '#ff4d8d', tiers: [
+    { col: '#ff4d8d', col2: '#ffffff', trail: 9,  grow: 1.5, size: 1,    impact: 1,    parts: 0, glow: null,   sparks: 0, after: 0 },
+    { col: '#ff4d8d', col2: '#ffe0ec', trail: 14, grow: 2,   size: 1.2,  impact: 1.25, parts: 0, glow: 'pink', sparks: 2, after: 0 },
+    { col: '#ff7ab0', col2: '#ffffff', trail: 20, grow: 0,   size: 1.45, impact: 1.5,  parts: 0, glow: 'pink', sparks: 3, after: 1 },
+    { col: '#b0103a', col2: '#ffd6de', trail: 20, grow: 0,   size: 1.45, impact: 1.5,  parts: 0, glow: 'red',  sparks: 3, after: 1 },
+  ] },
+  orbit: { col: '#ff3b5c', tiers: [
+    { col: '#ff2040', col2: '#ff9aa8', trail: 0,   grow: 0,    size: 1,    impact: 1,    parts: 0, glow: null,  arc: 0,   ring: 0 },
+    { col: '#ff2040', col2: '#ff9aa8', trail: 0.5, grow: 0.08, size: 1.05, impact: 1.2,  parts: 0, glow: null,  arc: 0.5, ring: 0 },
+    { col: '#ff3b5c', col2: '#ffc2cc', trail: 0.8, grow: 0,    size: 1.1,  impact: 1.4,  parts: 0, glow: 'red', arc: 0.8, ring: 0.16 },
+    { col: '#d0103a', col2: '#ffd166', trail: 0.8, grow: 0,    size: 1.1,  impact: 1.4,  parts: 0, glow: 'red', arc: 0.8, ring: 0.22 },
+  ] },
+  lightning: { col: '#7fd4ff', tiers: [
+    { col: '#7fc8ff', col2: '#ffffff', trail: 0, grow: 0,   size: 1,    impact: 1,    parts: 10, glow: null,   branch: 0, scorch: 0,   flash: 0 },
+    { col: '#7fd4ff', col2: '#ffffff', trail: 0, grow: 0.25, size: 1.6, impact: 1.15, parts: 12, glow: 'cyan', branch: 1, scorch: 1,   flash: 0 },
+    { col: '#bfe6ff', col2: '#ffffff', trail: 0, grow: 0,   size: 2.2,  impact: 1.3,  parts: 16, glow: 'cyan', branch: 2, scorch: 1.5, flash: 0.08 },
+    { col: '#d6a6ff', col2: '#ffffff', trail: 0, grow: 0,   size: 2.2,  impact: 1.3,  parts: 16, glow: 'purple', branch: 2, scorch: 1.5, flash: 0.08 },
+  ] },
+  knife: { col: '#dfe6f0', tiers: [
+    { col: '#dfe6f0', col2: '#ffffff', trail: 0,  grow: 0, size: 1, impact: 1,    parts: 0, glow: null,   glint: 0, ghost: 0 },
+    { col: '#dfe6f0', col2: '#ffffff', trail: 16, grow: 4, size: 1, impact: 1.2,  parts: 0, glow: null,   glint: 0, ghost: 0 },
+    { col: '#ffffff', col2: '#bfe6ff', trail: 30, grow: 0, size: 1, impact: 1.4,  parts: 0, glow: 'cyan', glint: 1, ghost: 2 },
+    { col: '#ffe9a8', col2: '#ffd166', trail: 30, grow: 0, size: 1, impact: 1.4,  parts: 0, glow: 'gold', glint: 1, ghost: 2 },
+  ] },
+  aura: { col: '#6eff8c', tiers: [
+    { col: '#6eff8c', col2: '#8cffa0', trail: 0, grow: 0,    size: 1, impact: 1, parts: 0, glow: null, ring: 0.35, ring2: 0, pulse: 0 },
+    { col: '#6eff8c', col2: '#8cffa0', trail: 0, grow: 0.05, size: 1, impact: 1, parts: 0, glow: null, ring: 0.5,  ring2: 0.28, pulse: 0 },
+    { col: '#8cffa8', col2: '#c8ffd4', trail: 0, grow: 0,    size: 1, impact: 1, parts: 0, glow: null, ring: 0.6,  ring2: 0.34, pulse: 0.22 },
+    { col: '#ff465a', col2: '#ff8296', trail: 0, grow: 0,    size: 1, impact: 1, parts: 0, glow: null, ring: 0.6,  ring2: 0.34, pulse: 0.25 },
+  ] },
+  nova: { col: '#7fd4ff', tiers: [
+    { col: '#7fd4ff', col2: '#ffffff', trail: 0, grow: 0,   size: 1,   impact: 1,    parts: 0,  glow: null, double: 0, dust: 0,  cracks: 0 },
+    { col: '#7fd4ff', col2: '#ffffff', trail: 0, grow: 0.04, size: 1.1, impact: 1.2,  parts: 14, glow: null, double: 1, dust: 1,  cracks: 0 },
+    { col: '#a8e4ff', col2: '#ffffff', trail: 0, grow: 0,    size: 1.3, impact: 1.4,  parts: 20, glow: null, double: 1, dust: 1,  cracks: 0.75 },
+    { col: '#ffd166', col2: '#ffffff', trail: 0, grow: 0,    size: 1.3, impact: 1.4,  parts: 20, glow: null, double: 1, dust: 1,  cracks: 0.85 },
+  ] },
+};
+
 const EVOLUTIONS = {
   bolt:      { passive: 'might', name: 'Huyết Vũ',     desc: '+2 tiễn, hồi chiêu -25%. Tiễn vỡ thành 2 mảnh khi trúng',   apply: w => { w.count += 2; w.cd *= 0.75; } },
   orbit:     { passive: 'area',  name: 'Nguyệt Thực',  desc: 'Thêm vòng ngoài 3 lưỡi xoay ngược, chém nhanh hơn',         apply: w => { w.hitCd = 0.36; } },
@@ -406,7 +462,7 @@ const UPGRADES = [
   ...Object.entries(WEAPONS).map(([id, w]) => ({
     id, kind: 'weapon', name: w.name, icon: w.icon, max: w.levels.length + 1,
     desc: l => l === 1 ? w.desc : w.levels[l - 2].d,
-    apply: (p, l) => { if (l === 1) { p.weapons[id] = newWeapon(id); G.stats.since[id] = G.t; } else w.levels[l - 2].f(p.weapons[id]); },
+    apply: (p, l) => { if (l === 1) { p.weapons[id] = newWeapon(id); G.stats.since[id] = G.t; } else w.levels[l - 2].f(p.weapons[id]); p.weapons[id].lv = l; },
   })),
   ...PASSIVES.map(x => ({ ...x, kind: 'passive' })),
 ];

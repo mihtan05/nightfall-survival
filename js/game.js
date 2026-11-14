@@ -5,7 +5,7 @@
 const G = {
   state: 'menu', t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
   boss: null, won: false, chestOpen: false, typeCount: {}, stepId: 0, stats: { dmg: {}, taken: {}, since: {} }, cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1,
-  hitStop: 0, warns: [], zones: [], freezeT: 0, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0,
+  hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0, zapFlashA: 0, freezeT: 0, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0,
   wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   player: null,
   sfx: new Pool(() => ({})),
@@ -30,7 +30,21 @@ const tmp = [];
 const POOLS = ['enemies', 'bullets', 'shots', 'gems', 'parts', 'fx', 'sfx', 'texts'];
 const lerp = (a, b, t) => a + (b - a) * t;
 
-function newWeapon(id) { return { id, ...WEAPONS[id].base, timer: 0.3 }; }
+function newWeapon(id) { return { id, ...WEAPONS[id].base, timer: 0.3, lv: 1 }; }
+/* V5 Phase 3: bậc hình ảnh của vũ khí (1: cấp 1–3, 2: cấp 4–7, 3: cấp 8, 4: tiến hoá) — chỉ dùng để vẽ */
+function weaponTier(w) { if (w.evo) return 4; const l = w.lv || 1, T = CFG.tiers; return l >= T.t3 ? 3 : l >= T.t2 ? 2 : 1; }
+function weaponLook(w) { return WEAPON_LOOK[w.id].tiers[weaponTier(w) - 1]; }
+// Số cấp đã lên trong bậc hiện tại (để mỗi cấp lẻ cũng thấy khác: vệt dài thêm `grow`)
+function lookStep(w) { const t = weaponTier(w), T = CFG.tiers, l = w.lv || 1; return t === 1 ? l - 1 : t === 2 ? l - T.t2 : 0; }
+function lookBullet(b, w) { b.tier = weaponTier(w); b.lv = lookStep(w); b.fxk = weaponLook(w).impact; }
+// Loé nhỏ ở chỗ bắn khi vũ khí hồi chiêu khai hoả: người chơi biết vũ khí nào vừa bắn
+function castCue(w, x, y) { const L = weaponLook(w), f = addFx('cast', x, y, 0.14); f.color = L.col; f.r = 3 + L.size; }
+/* Vết trên nền (cháy sém của sét, nứt đất của sóng xung kích): danh sách nhỏ có giới hạn, vẽ ngay sau nền, mờ dần */
+function addDecal(kind, x, y, r, life) {
+  const D = G.decals; if (D.length >= CFG.decals.cap) D.shift(); // đầy thì bỏ vết cũ nhất
+  D.push({ kind, x, y, r, rot: Math.random() * TAU, life, max: life });
+}
+function updateDecals(dt) { const D = G.decals; for (let i = D.length - 1; i >= 0; i--) if ((D[i].life -= dt) <= 0) D.splice(i, 1); }
 function newPlayer(start = 'bolt') {
   const hp = CFG.player.hp + 8 * metaLv('hp');
   return {
@@ -52,7 +66,7 @@ function resetWorld() {
   G.player = newPlayer(SETUP.start);
   Object.assign(G, {
     t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
-    boss: null, won: false, chestOpen: false, typeCount: {}, hitStop: 0, warns: [], zones: [],
+    boss: null, won: false, chestOpen: false, typeCount: {}, hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0,
     freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0,
     cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1, rerolls: CFG.rerolls + metaRoll(metaLv('roll')).rerolls,
     stats: { dmg: {}, taken: {}, since: { [SETUP.start]: 0 } },
@@ -379,13 +393,13 @@ function addShake(v) {
 function hitStop(sec) { G.hitStop = Math.max(G.hitStop, sec); }
 
 // Phát hiệu ứng sprite tại (x, y); `follow` = vật để bám theo. Thiếu fx atlas → bỏ qua (đã có hạt thay thế).
-function playFx(key, x, y, rot = 0, follow = null, oy = 0) {
+function playFx(key, x, y, rot = 0, follow = null, oy = 0, k = 1) {
   const st = FX_STYLE[key];
   if (!st || !fxReady()) return null;
   if (st.chance !== undefined && Math.random() > st.chance) return null;
   if (G.sfx.items.length >= (st.pri ? CFG.sfxCap : CFG.sfxSoftCap)) return null;
   const meta = FX_ATLAS.fx[key], s = G.sfx.get();
-  s.key = key; s.x = x; s.y = y + oy; s.oy = oy; s.t = 0; s.rot = rot; s.follow = follow;
+  s.key = key; s.x = x; s.y = y + oy; s.oy = oy; s.t = 0; s.rot = rot; s.follow = follow; s.k = k; // k: hệ số cỡ (bậc vũ khí)
   s.dur = meta.frames.length * meta.ms / 1000;
   return s;
 }
@@ -533,9 +547,20 @@ function orbitRings(w, p) {
   const R = w.radius * p.mArea, O = CFG.evo.orbit2;
   return w.evo ? [[w.count, w.ang, R], [O.n, w.ang2 || 0, R * O.rMul]] : [[w.count, w.ang, R]];
 }
+// Sóng xung kích bắt đầu: bậc 2 tung bụi quanh chân, bậc 3 để lại vết nứt toả ra từ người chơi (chỉ hình ảnh)
+function novaLook(f) {
+  const L = WEAPON_LOOK.nova.tiers[(f.tier || 1) - 1];
+  if (L.dust) for (let i = 0; i < L.parts && G.parts.items.length < CFG.partCap; i++) {
+    const a = i / L.parts * TAU + rand(-0.2, 0.2), q = G.parts.get(), v = rand(60, 120);
+    q.x = f.x + Math.cos(a) * 12; q.y = f.y + 8 + Math.sin(a) * 6; q.vx = Math.cos(a) * v; q.vy = Math.sin(a) * v * 0.5;
+    q.life = q.max = rand(0.35, 0.55); q.color = '#8a7a68'; q.size = rand(2, 3.5);
+  }
+  if (L.cracks && f.first) addDecal('crack', f.x, f.y + 4, f.maxR * L.cracks, 1.2);
+}
 function fireNova(w, p, delay) {
   const f = addFx('nova', p.x, p.y, 0.5);
   f.delay = delay; f.r = 0; f.maxR = w.maxR * p.mArea; f.dmg = w.dmg * dmgMul(p); f.kb = w.kb; f.hit.clear(); f.started = false; f.stun = !!w.evo;
+  f.tier = weaponTier(w); f.lv = lookStep(w); f.fxk = weaponLook(w).impact; f.first = delay === 0;
 }
 // Thiên Lôi: sét nảy từ mục tiêu sang tối đa 3 quái gần nhất chưa trúng, mỗi lần yếu đi
 const chainTmp = [], chainHit = new Set();
@@ -557,22 +582,28 @@ function fireBullet(kind, x, y, ang, speed, life, dmg, pierce, r, kb) {
   const b = G.bullets.get();
   b.kind = kind; b.x = x; b.y = y; b.vx = Math.cos(ang) * speed; b.vy = Math.sin(ang) * speed;
   b.life = life; b.dmg = dmg; b.pierce = pierce; b.r = r; b.kb = kb; b.hit.clear(); b.src = kind; b.evo = false; b.split = false; b.ret = 0;
+  b.tier = 1; b.lv = 0; b.fxk = 1;
   return b;
 }
 
-function strike(x, y, dmg, aoe, src = 'lightning') {
-  if (!playFx('strike', x, y)) { // không có sprite sét → vẽ tia sét bằng code
-    const f = addFx('zap', x, y, 0.3);
-    f.r = aoe; f.pts.length = 0;
+// w: vũ khí Lôi Phạt (để chọn hình theo bậc); không có thì vẽ như bậc 1
+function strike(x, y, dmg, aoe, src = 'lightning', w = null) {
+  const tier = w ? weaponTier(w) : 1, L = WEAPON_LOOK.lightning.tiers[tier - 1];
+  if (!playFx('strike', x, y, 0, null, 0, L.impact) || tier > 1) { // không có sprite sét (hoặc từ bậc 2) → vẽ thêm tia sét bằng code
+    const f = addFx(tier > 1 ? 'bolt' : 'zap', x, y, tier > 1 ? 0.22 : 0.3);
+    f.r = aoe; f.pts.length = 0; f.tier = tier; f.w = L.size + (w ? lookStep(w) : 0) * L.grow; f.color = L.col; f.glow = L.glow;
     for (let i = 0; i <= 7; i++) f.pts.push(rand(-14, 14));
+    f.br = L.branch; f.bi = 2 + Math.floor(Math.random() * 3); f.bs = Math.random() < 0.5 ? -1 : 1; // nhánh phụ tách ra từ điểm gấp thứ bi
   }
+  if (L.scorch) addDecal('scorch', x, y, aoe * L.scorch, tier >= 3 ? 0.9 : 0.6);
+  if (L.flash && !REDUCED_MOTION) { G.zapFlash = 0.1; G.zapFlashA = L.flash; }
   G.grid.query(x, y, aoe + 30, tmp);
   for (let i = 0; i < tmp.length; i++) {
     const e = tmp[i]; if (e.dead) continue;
     const rr = aoe + e.r;
     if ((e.x - x) ** 2 + (e.y - y) ** 2 < rr * rr) hitEnemy(e, dmg, e.x - x, e.y - y, 0.6, null, src);
   }
-  burst(x, y, '#bfe6ff', 10, 160, 2.5, 0.35);
+  burst(x, y, '#bfe6ff', L.parts, 160, 2.5, 0.35);
   addShake(1.5);
   SFX.play('zap');
 }
@@ -636,13 +667,13 @@ function dropPickup(x, y, kind, v) {
 
 // fx: tên hiệu ứng trúng đòn trong FX_STYLE (mỗi vũ khí một kiểu)
 // src: vũ khí gây sát thương (id vũ khí, 'bomb', 'zone') — ghi vào G.stats.dmg
-function hitEnemy(e, dmg, kx, ky, kb = 1, fx = null, src = '?') {
+function hitEnemy(e, dmg, kx, ky, kb = 1, fx = null, src = '?', fxk = 1) {
   if (e.dead) return;
   if (!e.prop) G.stats.dmg[src] = (G.stats.dmg[src] || 0) + Math.min(dmg, Math.max(0, e.hp));
   if (e.prop) { e.hp -= dmg; e.flash = 0.1; if (e.hp <= 0) killEnemy(e); return; }
   e.hp -= dmg; e.flash = 0.1;
   const l = Math.hypot(kx, ky) || 1; e.kx += kx / l * 90 * kb / e.mass; e.ky += ky / l * 90 * kb / e.mass;
-  if (fx) playFx(fx, e.x + rand(-3, 3), e.y - e.r * 0.2, fx === 'arrowHit' ? Math.atan2(ky, kx) : 0);
+  if (fx) playFx(fx, e.x + rand(-3, 3), e.y - e.r * 0.2, fx === 'arrowHit' ? Math.atan2(ky, kx) : 0, null, 0, fxk);
   addDmgText(e, dmg);
   if (e.hp <= 0) killEnemy(e);
   else { SFX.play('hit'); if (G.parts.items.length < CFG.partCap * 0.6) burst(e.x, e.y, ENEMIES[e.type].color, 2, 90, 2, 0.25); }
@@ -715,10 +746,10 @@ function updateBullets(dt) {
       if (e.dead || b.hit.has(e)) continue;
       const rr = e.r + b.r;
       if ((e.x - b.x) ** 2 + (e.y - b.y) ** 2 < rr * rr) {
-        hitEnemy(e, b.dmg, b.vx, b.vy, b.kb, b.kind === 'knife' ? 'arrowHit' : 'hitSpark', b.src); b.hit.add(e);
+        hitEnemy(e, b.dmg, b.vx, b.vy, b.kb, b.kind === 'knife' ? 'arrowHit' : 'hitSpark', b.src, b.fxk); b.hit.add(e);
         if (b.split) { // Huyết Vũ: vỡ thành 2 mảnh tỏa ra hai bên
           b.split = false; const S = CFG.evo.shard, a0 = Math.atan2(b.vy, b.vx), sp = Math.hypot(b.vx, b.vy);
-          for (const s of [-1, 1]) { const sh = fireBullet('bolt', e.x, e.y, a0 + s * S.ang, sp, S.life, b.dmg * S.dmg, 1, S.r, 0.5); sh.evo = true; sh.hit.add(e); }
+          for (const s of [-1, 1]) { const sh = fireBullet('bolt', e.x, e.y, a0 + s * S.ang, sp, S.life, b.dmg * S.dmg, 1, S.r, 0.5); sh.evo = true; sh.hit.add(e); sh.tier = b.tier; sh.lv = b.lv; sh.fxk = b.fxk; }
         }
         if (--b.pierce <= 0) { b.dead = true; break; }
       }
@@ -741,7 +772,7 @@ function updateFx(dt) {
   for (const f of G.fx.items) {
     if (f.type === 'nova') {
       if (f.delay > 0) { f.delay -= dt; continue; }
-      if (!f.started) { f.started = true; f.x = p.x; f.y = p.y; SFX.play('nova'); addShake(2.5); }
+      if (!f.started) { f.started = true; f.x = p.x; f.y = p.y; SFX.play('nova'); addShake(2.5); novaLook(f); }
       if (f.r < f.maxR) {
         f.r = Math.min(f.maxR, f.r + f.maxR / 0.35 * dt);
         G.grid.query(f.x, f.y, f.r + 30, tmp);
@@ -749,7 +780,7 @@ function updateFx(dt) {
           const e = tmp[i]; if (e.dead || f.hit.has(e)) continue;
           const dd = Math.hypot(e.x - f.x, e.y - f.y);
           if (dd < f.r + e.r) {
-            f.hit.add(e); hitEnemy(e, f.dmg, e.x - f.x, e.y - f.y, f.kb, 'punch', 'nova');
+            f.hit.add(e); hitEnemy(e, f.dmg, e.x - f.x, e.y - f.y, f.kb, 'punch', 'nova', f.fxk);
             if (f.stun && !e.dead && !e.prop) { if (e.boss) e.slowT = CFG.evo.stun; else e.stunT = CFG.evo.stun; }
           }
         }
@@ -814,7 +845,7 @@ function update(dt) {
   const p = G.player, v = inputVec();
   // hiệu ứng tạm thời từ vật phẩm
   for (const k in p.buffs) if (p.buffs[k] > 0) { p.buffs[k] -= dt; if (p.buffs[k] <= 0) { p.buffs[k] = 0; if (k === 'shield') p.shieldHits = 0; } }
-  G.freezeT = Math.max(0, G.freezeT - dt); G.flashT = Math.max(0, G.flashT - dt); G.gainT = Math.max(0, G.gainT - dt);
+  G.freezeT = Math.max(0, G.freezeT - dt); G.flashT = Math.max(0, G.flashT - dt); G.gainT = Math.max(0, G.gainT - dt); G.zapFlash = Math.max(0, G.zapFlash - dt);
   const spd = p.speed * (p.buffs.speed > 0 ? 1.4 : 1);
   p.dashCd = Math.max(0, p.dashCd - dt);
   if (p.dashT > 0) { // đang lướt: hướng đã khoá, bỏ qua phím
@@ -846,6 +877,7 @@ function update(dt) {
   updateZones(dt);
   updateBooms(dt);
   updateFx(dt);
+  updateDecals(dt);
   updateGems(dt);
   updateParts(dt);
   updateSfx(dt);

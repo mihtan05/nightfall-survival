@@ -84,7 +84,7 @@ function buildIcons() {
       g.translate(16, 16); g.scale(1.9, 1.9);
       SHAPES[name](g, { x: 0, y: 0, anim: 0, flash: 0 });
     } else ICON_DRAW[name](g);
-    ICONS[key] = c.toDataURL();
+    try { ICONS[key] = c.toDataURL(); } catch { /* file:// trên Chrome: ảnh atlas làm "bẩn" canvas → không xuất được, dùng ký tự dự phòng */ }
   }
   // gắn icon cho các phần tử tĩnh có data-icon
   for (const el of document.querySelectorAll('[data-icon]')) setIcon(el, el.dataset.icon);

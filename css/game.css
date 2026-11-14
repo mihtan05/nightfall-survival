@@ -26,7 +26,11 @@ img.ico,.ico img{image-rendering:pixelated;display:block}
 #owned{display:flex;flex-direction:column;gap:4px}
 #owned .row{display:flex;flex-wrap:wrap;gap:4px;max-width:min(320px,55vw)}
 .chip{position:relative;display:grid;place-items:center;width:30px;height:30px;background:#000b;border:1px solid var(--line);border-radius:6px}
-.chip.w{border-color:#6d4a20}
+.chip.w{border-color:#6d4a20;border-width:2px;margin-bottom:5px}
+.chip .pp{position:absolute;left:1px;right:1px;bottom:-6px;height:3px;display:flex;gap:1px}
+.chip .pp u{flex:1;background:#0009;border-radius:1px}
+.chip.up{animation:chipUp .6s ease-out 1}
+@keyframes chipUp{0%{transform:scale(1.35);box-shadow:0 0 14px #fff}100%{transform:none;box-shadow:none}}
 .chip.empty{background:#0006;border:1px dashed var(--line)}
 .chip img{width:22px;height:22px}
 .chip i{position:absolute;right:1px;bottom:-2px;font:14px/1 var(--px);font-style:normal;color:var(--gold);text-shadow:0 1px 0 #000,0 0 2px #000}
@@ -73,7 +77,7 @@ body.cine #cineTop,body.cine #cineBot{transform:none}
 #banner{position:absolute;top:15%;left:0;right:0;text-align:center;font:clamp(22px,4vw,36px)/1.1 var(--px);letter-spacing:2px;color:#ffd6de;text-shadow:0 0 18px #ff2a5088,0 3px 0 #000;opacity:0;padding:0 16px}
 #banner small{font-size:60%;color:#ffb3c0;letter-spacing:1px}
 #banner.show{animation:bannerA 2.8s ease forwards}
-@media (prefers-reduced-motion:reduce){#banner.show{animation-duration:2.8s;animation-name:bannerFade}.card{animation:none}}
+@media (prefers-reduced-motion:reduce){#banner.show{animation-duration:2.8s;animation-name:bannerFade}.card{animation:none}.card::after{display:none}.pips8 i.nx{animation:none;background:#ffd16666}.chip.up{animation:none}}
 @keyframes bannerFade{0%,100%{opacity:0}10%,78%{opacity:1}}
 @keyframes bannerA{0%{opacity:0;transform:scale(1.25)}10%{opacity:1;transform:scale(1)}78%{opacity:1}100%{opacity:0}}
 /* nâng cấp vũ khí: icon bay lên trên đầu người chơi (người chơi luôn ở giữa màn hình) */
@@ -107,8 +111,34 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 
 /* thẻ nâng cấp: hiện lần lượt, khoá bấm 0.35 giây để tránh bấm nhầm */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}
-.card{position:relative;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;color:var(--text);font:inherit;transition:transform .1s,border-color .1s;animation:cardIn .22s ease-out both}
-.card:nth-child(2){animation-delay:.05s}.card:nth-child(3){animation-delay:.1s}
+.card{position:relative;overflow:hidden;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;color:var(--text);font:inherit;transition:transform .1s,border-color .1s;animation:cardIn .24s ease-out both}
+.card:nth-child(2){animation-delay:.06s}.card:nth-child(3){animation-delay:.12s}
+/* thẻ cột mốc / tiến hoá: một vệt sáng quét qua sau khi thẻ hiện ra */
+.card.ms::after,.card.evo::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,#ffffff2e 50%,transparent 62%);background-size:260% 100%;background-position:160% 0;animation:shine .9s .4s ease-out 1 both}
+@keyframes shine{from{background-position:160% 0}to{background-position:-60% 0}}
+.card.ms{border-color:#4dc3ff;background:linear-gradient(180deg,#132a3a,var(--card) 55%);box-shadow:0 0 14px #4dc3ff44}
+.card.ms:hover,.card.ms:focus-visible{border-color:#9fe0ff}
+.mstag{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
+.mstag .tag{font:14px/1 var(--px);letter-spacing:1px;color:#0b0a12;background:#4dc3ff;border-radius:4px;padding:3px 6px}
+.mstag b{font:22px/1 var(--px);color:#bfe9ff}
+.pips8{display:flex;align-items:center;gap:3px;margin:0 0 8px}
+.pips8 i{width:9px;height:9px;border-radius:2px;background:#000;border:1px solid var(--line);font-style:normal}
+.pips8 i.ms{transform:rotate(45deg) scale(.9);border-radius:1px}
+.pips8 i.on{background:var(--gold);border-color:var(--gold)}
+.pips8 i.ms.on{background:#4dc3ff;border-color:#4dc3ff}
+.pips8 i.nx{border-color:var(--gold);animation:pipPulse .7s ease-in-out infinite alternate}
+.pips8 i.star{width:auto;height:auto;border:0;background:none;font:14px/1 var(--px);color:#5a4a2a;margin-left:2px}
+.pips8 i.star.on,.pips8 i.star.nx{color:var(--gold)}
+@keyframes pipPulse{from{background:#000}to{background:#ffd16699}}
+.card .diff{list-style:none;margin:6px 0 0;font:18px/1.15 var(--px);color:#d8f5c8}
+.card .diff li::before{content:'▸ ';color:#5cff9d}
+.recipe{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:8px;font:16px/1 var(--px);color:var(--muted)}
+.recipe .rp{display:inline-flex;align-items:center;gap:2px;padding:2px 4px 2px 2px;border:1px solid var(--line);border-radius:6px;background:#000;opacity:.45}
+.recipe .rp.ok{opacity:1;border-color:var(--gold)}
+.recipe .rp img{width:18px;height:18px}
+.recipe .rp b{font-weight:normal;color:var(--text)}
+.recipe .rn{color:#9c8a5a}
+.recipe .rn.ok{color:var(--gold)}
 @keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
 .cards.locked .card{pointer-events:none;filter:saturate(.6)}
 .card:hover,.card:focus-visible{border-color:var(--accent);transform:translateY(-3px);outline:none}
@@ -117,6 +147,10 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .card.evo .lv{color:var(--gold)}
 .card .evoh,.equip .evoh{font-size:12px;color:#d9b45a;margin-top:6px}
 .equip .evoh{margin:-4px 0 2px 32px}
+.equip .wsub{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin:-4px 0 0 32px}
+.equip .wsub .pips8{margin:0}
+.equip .wsub .nms{font-size:12px;color:#9fd8ff}
+.equip .recipe{margin:0 0 4px 32px}
 .chip.evo{border-color:var(--gold);box-shadow:0 0 6px #ffd16688}
 .card.weapon:hover,.card.weapon:focus-visible{border-color:var(--gold)}
 .card .top{display:flex;align-items:center;gap:12px;margin-bottom:8px}

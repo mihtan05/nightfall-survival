@@ -58,15 +58,28 @@ function showBossCard(def) {
 }
 function setBossName(name) { $('bossName').textContent = name.toUpperCase(); }
 
+/* Ô trang bị trên HUD. Vũ khí: viền màu theo bậc hình (CFG.tierColors) + dải chấm cấp nhỏ; vừa lên cấp thì nháy một lần.
+   Chỉ dựng lại khi cấp đổi (renderOwned gọi từ choose/give/resetWorld), không có việc DOM mỗi khung. */
+let ownedSeen = {}, ownedFor = null;
 function chip(u, l, cls) {
   const s = document.createElement('span'); s.className = 'chip ' + cls; s.title = `${u.name} — cấp ${l}`;
   s.append(iconEl(u.id, u.icon));
   const i = document.createElement('i'); i.textContent = l >= 9 ? '★' : l; s.append(i);
   if (l >= 9) s.classList.add('evo');
+  const w = u.kind === 'weapon' && G.player.weapons[u.id];
+  if (w) {
+    s.style.borderColor = CFG.tierColors[weaponTier(w) - 1];
+    const pp = document.createElement('b'); pp.className = 'pp';
+    for (let k = 1; k <= 8; k++) { const d = document.createElement('u'); if (k <= l) d.style.background = CFG.tierColors[Math.max(1, weaponTier(w)) - 1]; pp.append(d); }
+    s.append(pp);
+  }
+  if (ownedSeen[u.id] && l > ownedSeen[u.id]) s.classList.add('up');   // vừa nâng cấp: nháy một lần (CSS)
+  ownedSeen[u.id] = l;
   return s;
 }
 function renderOwned() {
   const p = G.player; if (!p) return;
+  if (ownedFor !== p) { ownedFor = p; ownedSeen = {}; }   // ván mới: không nháy
   ui.ownedW.replaceChildren(); ui.ownedP.replaceChildren();
   for (const u of UPGRADES) {
     const l = p.levels[u.id]; if (!l) continue;
@@ -212,6 +225,44 @@ function evoCard(id) {
 }
 // Gợi ý cách tiến hoá cho vũ khí đang có
 const evoHint = id => EVOLUTIONS[id] ? `Tiến hoá: cần ${PASSIVES.find(x => x.id === EVOLUTIONS[id].passive).name} cấp ${CFG.evo.passiveLvl}` : '';
+const mkEl = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+/* Dải chấm cấp: đã có = đầy, cấp sắp lấy = nhấp nháy, cấp cột mốc (4, 8) hình thoi; ngôi sao cuối = tiến hoá */
+function pipsEl(cur, next, max, kind, evoAble) {
+  const d = mkEl('div', 'pips8'); d.setAttribute('aria-hidden', 'true');
+  for (let i = 1; i <= max; i++) {
+    const ms = kind === 'weapon' && (i === CFG.tiers.t2 || i === CFG.tiers.t3);
+    d.append(mkEl('i', (ms ? 'ms ' : '') + (i <= cur ? 'on' : i === next ? 'nx' : '')));
+  }
+  if (evoAble) d.append(mkEl('i', 'star' + (cur >= 9 ? ' on' : next === 9 ? ' nx' : ''), '★'));
+  return d;
+}
+/* Dòng "trước → sau" tính từ chính hàm nâng cấp: áp f lên bản sao trạng thái vũ khí rồi so các trường số có nhãn trong STAT_LABELS */
+function statDiff(id, w, f) {
+  const a = { ...w }, b = { ...w }; f(b);
+  const out = [];
+  for (const k in STAT_LABELS) {
+    if (typeof a[k] !== 'number' || a[k] === b[k]) continue;
+    const [lab, fmt] = STAT_LABELS[k], A = fmt(a[k]), B = fmt(b[k]);
+    if (String(A) !== String(B)) out.push(`${k === 'count' ? COUNT_NAMES[id] || lab : lab} ${A} → ${B}`);
+  }
+  return out;
+}
+/* Công thức tiến hoá dạng hình: [icon vũ khí n/8] + [icon bị động n/3] → tên tiến hoá; phần chưa đạt thì mờ */
+function evoRecipe(id, wl, pl) {
+  const E = EVOLUTIONS[id]; if (!E) return null;
+  const P = PASSIVES.find(x => x.id === E.passive), need = CFG.evo.passiveLvl, d = mkEl('div', 'recipe');
+  const part = (key, glyph, txt, ok) => { const s = mkEl('span', 'rp' + (ok ? ' ok' : '')); s.append(iconEl(key, glyph), mkEl('b', '', txt)); return s; };
+  d.append(part(id, WEAPONS[id].icon, `${Math.min(wl, 8)}/8`, wl >= 8), mkEl('span', 'op', '+'),
+    part(P.id, P.icon, `${Math.min(pl, need)}/${need}`, pl >= need), mkEl('span', 'op', '→'), mkEl('span', 'rn' + (wl >= 8 && pl >= need ? ' ok' : ''), E.name));
+  d.title = `Tiến hoá ${E.name}: ${WEAPONS[id].name} cấp 8 + ${P.name} cấp ${need}`;
+  return d;
+}
+// Mốc kế tiếp của vũ khí ở cấp l: { lv, name } hoặc null
+function nextMilestone(id, l) {
+  const L = WEAPONS[id].levels;
+  for (let k = l + 1; k <= L.length + 1; k++) if (L[k - 2] && L[k - 2].ms) return { lv: k, name: L[k - 2].ms };
+  return null;
+}
 function openLevelUp() {
   // KHÔNG xả phím/joystick ở đây: người chơi vẫn đang giữ hướng, chọn thẻ xong phải chạy tiếp ngay.
   G.state = 'levelup';
@@ -221,19 +272,35 @@ function openLevelUp() {
   show('levelup', true);
   SFX.play('level');
 }
+/* Thẻ nâng cấp (V5 Phase 4): dải chấm cấp, dòng "trước → sau" tính từ hàm nâng cấp, thẻ CỘT MỐC (cấp 4/8) có viền riêng,
+   công thức tiến hoá dạng hình trên thẻ vũ khí và trên thẻ bị động ghép đôi. */
 function renderCards() {
   const p = G.player, box = $('cards'); box.replaceChildren();
   const nW = ownedCount(p, 'weapon'), nP = ownedCount(p, 'passive');
   G.choices.forEach((u, idx) => {
-    const cur = p.levels[u.id] || 0, next = cur + 1;
-    const b = document.createElement('button'); b.className = 'card' + (u.kind === 'weapon' ? ' weapon' : u.kind === 'evo' ? ' evo' : '');
-    b.innerHTML = `<span class="key">${idx + 1}</span><div class="top"><div class="ic"></div><div><div class="nm"></div><div class="lv ${cur ? '' : 'new'}"></div></div></div><div class="ds"></div>`;
+    const cur = u.kind === 'evo' ? 8 : p.levels[u.id] || 0, next = u.kind === 'evo' ? 9 : cur + 1;
+    const lvDef = u.kind === 'weapon' && next >= 2 ? WEAPONS[u.id].levels[next - 2] : null, ms = lvDef && lvDef.ms;
+    const b = mkEl('button', 'card' + (u.kind === 'weapon' ? ' weapon' : u.kind === 'evo' ? ' evo' : '') + (ms ? ' ms' : ''));
+    b.innerHTML = `<span class="key">${idx + 1}</span><div class="top"><div class="ic"></div><div><div class="nm"></div><div class="lv ${cur ? '' : 'new'}"></div></div></div>`;
     b.querySelector('.ic').append(iconEl(u.id, u.icon));
     b.querySelector('.nm').textContent = u.name;
     b.querySelector('.lv').textContent = u.kind === 'evo' ? `TIẾN HOÁ · ${WEAPONS[u.id].name}` : u.kind === 'item' ? 'Vật phẩm' : cur ? `Cấp ${cur} → ${next}`
       : u.kind === 'weapon' ? `Vũ khí mới ${nW + 1}/${CFG.slots.weapons}` : `Bị động mới ${nP + 1}/${CFG.slots.passives}`;
-    b.querySelector('.ds').textContent = u.desc(next);
-    if (u.kind === 'weapon' && cur && EVOLUTIONS[u.id]) { const h = document.createElement('div'); h.className = 'evoh'; h.textContent = evoHint(u.id); b.append(h); }
+    if (u.kind === 'weapon' || u.kind === 'evo') b.append(pipsEl(cur, next, 8, 'weapon', !!EVOLUTIONS[u.id]));
+    else if (u.kind === 'passive') b.append(pipsEl(cur, next, u.max, 'passive', false));
+    if (ms) { const t = mkEl('div', 'mstag'); t.append(mkEl('span', 'tag', 'CỘT MỐC'), mkEl('b', '', ms)); b.append(t); }
+    b.append(mkEl('div', 'ds', u.desc(next)));
+    const w = p.weapons[u.id];
+    let diff = [];
+    if (u.kind === 'weapon' && cur && w) diff = statDiff(u.id, w, lvDef.f);
+    else if (u.kind === 'evo' && w) diff = statDiff(u.id, w, x => { x.evo = true; EVOLUTIONS[u.id].apply(x); });
+    else if (u.kind === 'passive' && u.tot) diff = [cur ? `Tổng ${u.tot(cur)} → ${u.tot(next)}` : `Tổng ${u.tot(next)}`];
+    if (diff.length) { const ul = mkEl('ul', 'diff'); for (const t of diff) ul.append(mkEl('li', '', t)); b.append(ul); }
+    if (u.kind === 'weapon' && EVOLUTIONS[u.id]) b.append(evoRecipe(u.id, next, p.levels[EVOLUTIONS[u.id].passive] || 0));
+    if (u.kind === 'passive') {
+      const evoId = Object.keys(EVOLUTIONS).find(k => EVOLUTIONS[k].passive === u.id && p.levels[k]);
+      if (evoId) { b.append(mkEl('div', 'evoh', `Cần cho tiến hoá: ${EVOLUTIONS[evoId].name}`)); b.append(evoRecipe(evoId, p.levels[evoId], next)); }
+    }
     b.addEventListener('click', () => choose(u));
     box.append(b);
   });
@@ -314,7 +381,13 @@ function renderPause() {
     const evo = l >= 9 && EVOLUTIONS[u.id];
     r.append(evo ? EVOLUTIONS[u.id].name : u.name);
     const b = document.createElement('b'); b.textContent = evo ? '★' : 'Lv ' + l; r.append(b); equip.append(r);
-    if (u.kind === 'weapon' && !evo && EVOLUTIONS[u.id]) { const h = document.createElement('div'); h.className = 'evoh'; h.textContent = evoHint(u.id); equip.append(h); }
+    if (u.kind !== 'weapon') return;
+    // Vũ khí: dải chấm cấp, cột mốc kế tiếp, công thức tiến hoá + trạng thái
+    const sub = mkEl('div', 'wsub'); sub.append(pipsEl(l, 0, 8, 'weapon', !!EVOLUTIONS[u.id]));
+    const nm = nextMilestone(u.id, l);
+    sub.append(mkEl('span', 'nms', evo ? 'Đã tiến hoá' : nm ? `Cột mốc kế: cấp ${nm.lv} · ${nm.name}` : 'Đã đủ cấp 8'));
+    equip.append(sub);
+    if (!evo && EVOLUTIONS[u.id]) equip.append(evoRecipe(u.id, l, p.levels[EVOLUTIONS[u.id].passive] || 0));
   };
   const weapons = UPGRADES.filter(u => u.kind === 'weapon' && p.levels[u.id]);
   const passives = UPGRADES.filter(u => u.kind === 'passive' && p.levels[u.id]);

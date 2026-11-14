@@ -218,6 +218,19 @@ window.runChecks = async function () {
   for (let i = 0; i < 20; i++) { const e = spawnEnemy('skeleton', P().x + rand(-100, 100), P().y + rand(-80, 80)); e.speed = 0; e.hp = e.maxHp = 1e6; }
   let decMax = 0; for (let i = 0; i < 300; i++) { v.tick(0.05); decMax = Math.max(decMax, G.decals.length); for (let k = 0; k < 5; k++) addDecal('scorch', 0, 0, 10, 5); }
   ok('V5-3', '3.2 Vết trên nền có giới hạn', decMax <= CFG.decals.cap && decMax > 0, `${decMax}/${CFG.decals.cap}`);
+  // ---------- V5 Phase 4: cột mốc + thẻ hiện lộ trình ----------
+  const EXP8 = {"bolt":{"dmg":15.679999999999998,"cd":0.5599999999999999,"count":4,"pierce":3,"speed":504,"life":1.3,"r":5,"range":520},"orbit":{"dmg":14.196,"count":5,"radius":74.39999999999999,"spin":4.5,"r":8,"hitCd":0.45,"ang":0},"lightning":{"dmg":27.299999999999997,"cd":1.87,"count":4,"aoe":44.8},"knife":{"dmg":10.92,"cd":0.44000000000000006,"count":4,"pierce":4,"speed":540,"life":0.8,"r":4},"aura":{"dmg":8,"radius":95.04,"tick":0.425,"slow":0.35,"pulse":0},"nova":{"dmg":32.76,"cd":2.975,"maxR":171.875,"kb":5.25,"count":2}}; // trạng thái cấp 8 đo TRƯỚC khi đổi thứ tự cấp
+  const st8 = {}; let same8 = true;
+  for (const id of Object.keys(WEAPONS)) { fresh(); G.player.weapons = {}; G.player.levels = {}; v.give(id, 8); const w = G.player.weapons[id];
+    for (const [k, val] of Object.entries(EXP8[id])) if (Math.abs(w[k] - val) > 1e-9) { same8 = false; st8[id] = k; } }
+  const msOk = Object.values(WEAPONS).every(W => W.levels[CFG.tiers.t2 - 2].ms && W.levels[CFG.tiers.t3 - 2].ms && W.levels.filter(l => l.ms).length === 2);
+  ok('V5-4', '4.1 Cấp 4 và 8 là cột mốc; give(id, 8) cho đúng trạng thái như trước khi đổi thứ tự', same8 && msOk, same8 ? 'khớp 6 vũ khí' : JSON.stringify(st8));
+  fresh(); v.give('bolt', 3); G.pending = 1; G.state = 'levelup'; G.choices = [UPGRADES.find(u => u.id === 'bolt'), UPGRADES.find(u => u.id === 'might'), evoCard('bolt')]; renderCards();
+  const cardsEl = document.querySelectorAll('#cards .card'), txt0 = cardsEl[0].textContent;
+  const cardOk = cardsEl[0].classList.contains('ms') && /CỘT MỐC/.test(txt0) && /Xuyên 1 → 2/.test(txt0) && cardsEl[0].querySelectorAll('.pips8 i.on').length === 3 && cardsEl[0].querySelector('.recipe')
+    && /Tổng \+15% sát thương/.test(cardsEl[1].textContent) && /Cần cho tiến hoá: Huyết Vũ/.test(cardsEl[1].textContent) && cardsEl[2].classList.contains('evo');
+  ok('V5-4', '4.2 Thẻ: chấm cấp, CỘT MỐC, dòng trước → sau, công thức tiến hoá trên thẻ vũ khí và bị động', cardOk, txt0.replace(/\s+/g, ' ').slice(0, 120));
+  G.state = 'play'; show('levelup', false); G.pending = 0;
   G.state = 'over';
   return out;
 };

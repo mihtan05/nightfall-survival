@@ -210,7 +210,9 @@ const WAVE_DEFS = [
     events: [{ t: 40, kind: 'circle', type: 'golem', n: 24, msg: 'Quỷ khổng lồ bao vây!' }, { t: 95, kind: 'swarm', type: 'bat', n: 80, msg: 'Màn đêm cuối cùng!' }] },
 ];
 
-/* ---------- Vũ khí: mỗi vũ khí có base, 7 cấp nâng và hàm update ---------- */
+/* ---------- Vũ khí: mỗi vũ khí có base, 7 cấp nâng và hàm update ----------
+   ms: tên CỘT MỐC (cấp 4 và cấp 8 — đúng lúc vũ khí đổi hình, xem CFG.tiers). V5 Phase 4 chỉ ĐỔI THỨ TỰ các bước có sẵn
+   (tổng ở cấp 8 không đổi) để cấp 4/8 là bước đổi cách đánh chứ không chỉ cộng %. */
 const WEAPONS = {
   bolt: {
     name: 'Huyết Tiễn', icon: '✦', desc: 'Bắn tiễn vào quái gần nhất',
@@ -218,11 +220,11 @@ const WEAPONS = {
     levels: [
       { d: '+1 tiễn',                        f: s => s.count++ },
       { d: '+40% sát thương',                f: s => s.dmg *= 1.4 },
-      { d: 'Xuyên thêm 1 quái',              f: s => s.pierce++ },
+      { d: 'Xuyên thêm 1 quái',              f: s => s.pierce++, ms: 'Xuyên Giáp' },
       { d: '+1 tiễn',                        f: s => s.count++ },
       { d: '-20% hồi chiêu',                 f: s => s.cd *= 0.8 },
       { d: '+40% sát thương, bay nhanh hơn', f: s => { s.dmg *= 1.4; s.speed *= 1.2; } },
-      { d: '+1 tiễn, xuyên thêm 1',          f: s => { s.count++; s.pierce++; } },
+      { d: '+1 tiễn, xuyên thêm 1',          f: s => { s.count++; s.pierce++; }, ms: 'Loạn Tiễn' },
     ],
     update(w, p, dt) {
       w.timer -= dt; if (w.timer > 0) return;
@@ -248,11 +250,11 @@ const WEAPONS = {
     levels: [
       { d: '+1 cầu',                          f: s => s.count++ },
       { d: '+30% sát thương',                 f: s => s.dmg *= 1.3 },
-      { d: '+20% bán kính và tốc độ xoay',    f: s => { s.radius *= 1.2; s.spin *= 1.2; } },
+      { d: '+20% bán kính và tốc độ xoay',    f: s => { s.radius *= 1.2; s.spin *= 1.2; }, ms: 'Trăng Tròn' },
       { d: '+1 cầu',                          f: s => s.count++ },
       { d: '+30% sát thương',                 f: s => s.dmg *= 1.3 },
       { d: '+1 cầu',                          f: s => s.count++ },
-      { d: '+40% sát thương, xoay nhanh hơn', f: s => { s.dmg *= 1.4; s.spin *= 1.25; } },
+      { d: '+40% sát thương, xoay nhanh hơn', f: s => { s.dmg *= 1.4; s.spin *= 1.25; }, ms: 'Cuồng Nguyệt' },
     ],
     update(w, p, dt) {
       w.ang += w.spin * dt; w.ang2 = (w.ang2 || 0) + w.spin * CFG.evo.orbit2.spin * dt;
@@ -277,11 +279,11 @@ const WEAPONS = {
     levels: [
       { d: '+1 tia sét',      f: s => s.count++ },
       { d: '+30% sát thương', f: s => s.dmg *= 1.3 },
+      { d: '+1 tia sét',      f: s => s.count++, ms: 'Tam Lôi' },
       { d: '-15% hồi chiêu',  f: s => s.cd *= 0.85 },
-      { d: '+1 tia sét',      f: s => s.count++ },
       { d: '+40% vùng nổ',    f: s => s.aoe *= 1.4 },
       { d: '+1 tia sét',      f: s => s.count++ },
-      { d: '+50% sát thương', f: s => s.dmg *= 1.5 },
+      { d: '+50% sát thương', f: s => s.dmg *= 1.5, ms: 'Lôi Đình' },
     ],
     update(w, p, dt) {
       w.timer -= dt; if (w.timer > 0) return;
@@ -303,11 +305,11 @@ const WEAPONS = {
     levels: [
       { d: '+1 dao',            f: s => s.count++ },
       { d: '+30% sát thương',   f: s => s.dmg *= 1.3 },
+      { d: 'Xuyên thêm 2 quái', f: s => s.pierce += 2, ms: 'Xuyên Thấu' },
       { d: '+1 dao',            f: s => s.count++ },
-      { d: 'Xuyên thêm 2 quái', f: s => s.pierce += 2 },
       { d: '-20% hồi chiêu',    f: s => s.cd *= 0.8 },
-      { d: '+1 dao',            f: s => s.count++ },
       { d: '+40% sát thương',   f: s => s.dmg *= 1.4 },
+      { d: '+1 dao',            f: s => s.count++, ms: 'Tứ Đao' },
     ],
     update(w, p, dt) {
       w.timer -= dt; if (w.timer > 0) return;
@@ -329,11 +331,11 @@ const WEAPONS = {
     levels: [
       { d: '+20% bán kính',                 f: s => s.radius *= 1.2 },
       { d: '+2 sát thương',                 f: s => s.dmg += 2 },
-      { d: 'Gây sát thương nhanh hơn 15%',  f: s => s.tick *= 0.85 },
+      { d: 'Gây sát thương nhanh hơn 15%',  f: s => s.tick *= 0.85, ms: 'Ăn Mòn' },
       { d: '+20% bán kính',                 f: s => s.radius *= 1.2 },
       { d: '+3 sát thương',                 f: s => s.dmg += 3 },
       { d: '+20% bán kính',                 f: s => s.radius *= 1.2 },
-      { d: 'Làm chậm quái 35%',             f: s => s.slow = 0.35 },
+      { d: 'Làm chậm quái 35%',             f: s => s.slow = 0.35, ms: 'Đầm Lầy' },
     ],
     update(w, p, dt) { w.pulse += dt; }, // sát thương xử lý trong updateEnemies (tiết kiệm 1 vòng duyệt)
   },
@@ -343,11 +345,11 @@ const WEAPONS = {
     levels: [
       { d: '+25% bán kính',              f: s => s.maxR *= 1.25 },
       { d: '+30% sát thương',            f: s => s.dmg *= 1.3 },
+      { d: '+25% bán kính',              f: s => s.maxR *= 1.25, ms: 'Lan Rộng' },
       { d: '-15% hồi chiêu',             f: s => s.cd *= 0.85 },
-      { d: '+25% bán kính',              f: s => s.maxR *= 1.25 },
       { d: '+40% sát thương',            f: s => s.dmg *= 1.4 },
-      { d: 'Phát 2 sóng liên tiếp',      f: s => s.count = 2 },
       { d: '+50% sát thương và lực đẩy', f: s => { s.dmg *= 1.5; s.kb *= 1.5; } },
+      { d: 'Phát 2 sóng liên tiếp',      f: s => s.count = 2, ms: 'Dư Chấn' },
     ],
     update(w, p, dt) {
       w.timer -= dt; if (w.timer > 0) return;
@@ -447,16 +449,29 @@ const UNLOCKS = {
   nova:      { text: 'Tiến hoá một vũ khí bất kỳ', ok: r => r.evo },
 };
 
+// tot(l): tổng cộng dồn ở cấp l (thẻ bị động hiện "+15% → +30%")
+const pctTot = (k, l, sign = '+') => sign + Math.round(Math.abs(k ** l - 1) * 100) + '%';
 const PASSIVES = [
-  { id: 'might',  name: 'Nộ Huyết',          icon: '⚔', max: 5, desc: () => '+15% sát thương',        apply: p => p.mDmg += 0.15 },
-  { id: 'haste',  name: 'Đồng Hồ Cát',       icon: '⌛', max: 5, desc: () => '-8% hồi chiêu',          apply: p => p.mCd *= 0.92 },
-  { id: 'area',   name: 'Tinh Thể Hư Không', icon: '✧', max: 5, desc: () => '+10% vùng ảnh hưởng',    apply: p => p.mArea *= 1.1 },
-  { id: 'swift',  name: 'Ủng Bóng Đêm',      icon: '»', max: 5, desc: () => '+10% tốc độ chạy',       apply: p => p.speed *= 1.1 },
-  { id: 'vital',  name: 'Tim Quỷ',           icon: '♥', max: 5, desc: () => '+20 máu tối đa, hồi 20', apply: p => { p.maxHp += 20; p.hp = Math.min(p.maxHp, p.hp + 20); } },
-  { id: 'magnet', name: 'Nam Châm Linh Hồn', icon: '◎', max: 5, desc: () => '+35% bán kính hút ngọc', apply: p => p.magnet *= 1.35 },
-  { id: 'armor',  name: 'Giáp Xương',        icon: '◆', max: 5, desc: () => '-1 sát thương nhận vào', apply: p => p.armor += 1 },
-  { id: 'regen',  name: 'Máu Bất Tử',        icon: '✚', max: 5, desc: () => '+0.4 máu mỗi giây',      apply: p => p.regen += 0.4 },
+  { id: 'might',  name: 'Nộ Huyết',          icon: '⚔', max: 5, desc: () => '+15% sát thương',        apply: p => p.mDmg += 0.15,        tot: l => `+${15 * l}% sát thương` },
+  { id: 'haste',  name: 'Đồng Hồ Cát',       icon: '⌛', max: 5, desc: () => '-8% hồi chiêu',          apply: p => p.mCd *= 0.92,         tot: l => pctTot(0.92, l, '-') + ' hồi chiêu' },
+  { id: 'area',   name: 'Tinh Thể Hư Không', icon: '✧', max: 5, desc: () => '+10% vùng ảnh hưởng',    apply: p => p.mArea *= 1.1,        tot: l => pctTot(1.1, l) + ' vùng' },
+  { id: 'swift',  name: 'Ủng Bóng Đêm',      icon: '»', max: 5, desc: () => '+10% tốc độ chạy',       apply: p => p.speed *= 1.1,        tot: l => pctTot(1.1, l) + ' tốc chạy' },
+  { id: 'vital',  name: 'Tim Quỷ',           icon: '♥', max: 5, desc: () => '+20 máu tối đa, hồi 20', apply: p => { p.maxHp += 20; p.hp = Math.min(p.maxHp, p.hp + 20); }, tot: l => `+${20 * l} máu` },
+  { id: 'magnet', name: 'Nam Châm Linh Hồn', icon: '◎', max: 5, desc: () => '+35% bán kính hút ngọc', apply: p => p.magnet *= 1.35,     tot: l => pctTot(1.35, l) + ' tầm hút' },
+  { id: 'armor',  name: 'Giáp Xương',        icon: '◆', max: 5, desc: () => '-1 sát thương nhận vào', apply: p => p.armor += 1,          tot: l => `-${l} sát thương nhận` },
+  { id: 'regen',  name: 'Máu Bất Tử',        icon: '✚', max: 5, desc: () => '+0.4 máu mỗi giây',      apply: p => p.regen += 0.4,        tot: l => `+${(0.4 * l).toFixed(1)} máu/giây` },
 ];
+/* Nhãn tiếng Việt cho dòng "trước → sau" trên thẻ vũ khí (V5 Phase 4). fmt: cách in giá trị; count dùng tên riêng theo vũ khí.
+   Trường không có ở đây (timer, ang, pulse, life, r, range, lv…) không được in. */
+const STAT_LABELS = {
+  dmg: ['Sát thương', v => Math.round(v)], count: ['Số lượng', v => v], pierce: ['Xuyên', v => v >= 99 ? '∞' : v],
+  cd: ['Hồi chiêu', v => v.toFixed(2) + 's'], speed: ['Tốc bay', v => Math.round(v)], radius: ['Bán kính', v => Math.round(v)],
+  spin: ['Tốc xoay', v => v.toFixed(1)], hitCd: ['Nhịp chém', v => v.toFixed(2) + 's'], aoe: ['Vùng nổ', v => Math.round(v)],
+  tick: ['Nhịp độc', v => v.toFixed(2) + 's'], slow: ['Làm chậm', v => Math.round(v * 100) + '%'], maxR: ['Bán kính sóng', v => Math.round(v)],
+  kb: ['Lực đẩy', v => v.toFixed(1)],
+};
+const COUNT_NAMES = { bolt: 'Số tiễn', orbit: 'Số cầu', lightning: 'Số tia sét', knife: 'Số dao', nova: 'Số sóng' };
+CFG.tierColors = ['#6d4a20', '#4dc3ff', '#c86bff', '#ffd166']; // viền ô vũ khí trên HUD theo bậc 1..4
 
 const UPGRADES = [
   ...Object.entries(WEAPONS).map(([id, w]) => ({

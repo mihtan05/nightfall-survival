@@ -14,7 +14,7 @@ Kế hoạch v5 cho "Đêm Sinh Tồn". Mỗi phase bên dưới là **một pro
 | 1 | Viền sprite mảnh, mềm, dày đều ở mọi cỡ quái | M | — | **xong** |
 | 2 | Bóng đổ, vùng báo trước, nền, quái xuất hiện/chết | M | 1 | **xong** |
 | 3 | Vũ khí đổi hình theo cấp (nhìn là biết mạnh lên) | L | 1 | **xong** |
-| 4 | Cột mốc cấp 4/8 + thẻ nâng cấp hiện rõ lộ trình | M | 3 | chưa làm |
+| 4 | Cột mốc cấp 4/8 + thẻ nâng cấp hiện rõ lộ trình | M | 3 | **xong** |
 | 5 | Âm thanh: tìm nguồn CC0 trên web, lập danh sách xin duyệt | S | — | chưa làm |
 | 6 | Âm thanh: tải, trang nghe thử, phối âm | L | 5 + duyệt | chưa làm |
 | 7 | Phần thưởng trong ván: combo, rương, mốc, hút ngọc | M | 2 | chưa làm |

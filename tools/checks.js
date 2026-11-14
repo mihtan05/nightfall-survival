@@ -231,6 +231,27 @@ window.runChecks = async function () {
     && /Tổng \+15% sát thương/.test(cardsEl[1].textContent) && /Cần cho tiến hoá: Huyết Vũ/.test(cardsEl[1].textContent) && cardsEl[2].classList.contains('evo');
   ok('V5-4', '4.2 Thẻ: chấm cấp, CỘT MỐC, dòng trước → sau, công thức tiến hoá trên thẻ vũ khí và bị động', cardOk, txt0.replace(/\s+/g, ' ').slice(0, 120));
   G.state = 'play'; show('levelup', false); G.pending = 0;
+  // ---------- V5 Phase 7: phần thưởng trong ván ----------
+  fresh(); G.player.weapons = {}; G.player.levels = {};
+  const foes = []; for (let i = 0; i < 60; i++) { const e = spawnEnemy('skeleton', P().x + 300 + i, P().y); e.speed = 0; foes.push(e); }
+  const gemAt = () => { dropPickup(P().x + 150, P().y, 'xp', 1); return G.gems.items[G.gems.items.length - 1]; };
+  const gA = gemAt(); for (let i = 0; i < 25; i++) hitEnemy(foes[i], 1e9, 1, 0); const pulledA = gA.pulled;
+  const gB = gemAt(), preB = gB.pulled; for (let i = 25; i < 60; i++) hitEnemy(foes[i], 1e9, 1, 0); const pulledB = gB.pulled;
+  updateHud(); const comboVis = document.getElementById('combo').classList.contains('show') && /x60/.test(document.getElementById('comboN').textContent);
+  const c60 = G.combo; v.tick(3);
+  ok('V5-7', '7.1 Hạ 60 quái liên tiếp: combo 60, HUD hiện; mốc 25 và 50 kéo ngọc gần; 3 giây không hạ thì về 0', c60 === 60 && comboVis && pulledA && !preB && pulledB && G.combo === 0,
+    `combo ${c60}, HUD ${comboVis}, kéo ${pulledA}/${pulledB}, sau 3 giây ${G.combo}`);
+  fresh(); dropPickup(P().x, P().y, 'chest', 0); v.tick(0.05);
+  const chestTick = G.state === 'levelup' && G.pending === 2;
+  { const base = performance.now(); last = base; frame(base + 16); }
+  const cereOn = cere.on && !document.getElementById('levelup').classList.contains('show') && document.getElementById('chestCere').classList.contains('show');
+  { const base = performance.now(); last = base; for (let i = 1; i <= 14; i++) frame(base + i * 100); }
+  const cardsAfter = !cere.on && document.getElementById('levelup').classList.contains('show');
+  while (G.state === 'levelup') v.choose(G.choices[0]);
+  ok('V5-7', '7.2 Rương: tick nhận ngay 2 lượt; chạy khung thật thì có nghi thức rồi mới mở thẻ', chestTick && cereOn && cardsAfter && G.pending === 0, `tick ${chestTick}, nghi thức ${cereOn}, thẻ sau ${cardsAfter}`);
+  fresh(); G.kills = 120; { const base = performance.now(); last = base; frame(base + 16); frame(base + 32); }
+  const toastOk = [...document.querySelectorAll('#toasts .toast')].some(t => /100 quái/.test(t.textContent));
+  ok('V5-7', '7.3 Thông báo mốc (100 quái)', toastOk);
   G.state = 'over';
   return out;
 };

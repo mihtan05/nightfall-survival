@@ -31,6 +31,7 @@ addEventListener('keydown', e => {
   }
   if (code === 'Space') e.preventDefault();
   if (e.repeat) return;
+  if (cere.on) { e.preventDefault(); endCere(); return; } // mở rương: phím bất kỳ để bỏ qua
   if (code === 'Escape' && metaOpen()) openMeta(false);
   else if (code === 'Escape' || code === 'KeyP') togglePause();
   else if (code === 'KeyM') SFX.toggle();

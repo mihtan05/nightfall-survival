@@ -80,6 +80,54 @@ body.cine #cineTop,body.cine #cineBot{transform:none}
 @media (prefers-reduced-motion:reduce){#banner.show{animation-duration:2.8s;animation-name:bannerFade}.card{animation:none}.card::after{display:none}.pips8 i.nx{animation:none;background:#ffd16666}.chip.up{animation:none}}
 @keyframes bannerFade{0%,100%{opacity:0}10%,78%{opacity:1}}
 @keyframes bannerA{0%{opacity:0;transform:scale(1.25)}10%{opacity:1;transform:scale(1)}78%{opacity:1}100%{opacity:0}}
+/* ---------- V5 Phase 7 ---------- */
+/* chuỗi hạ gục: góc phải, dưới các nút */
+#combo{position:absolute;top:calc(74px + var(--sat));right:calc(14px + var(--sar));text-align:right;opacity:0;transition:opacity .2s}
+#combo.show{opacity:1}
+#combo b{display:inline-block;font:34px/1 var(--px);color:#ffe7a8;letter-spacing:1px;text-shadow:0 2px 0 #000,0 0 10px #ff9a3d88;transform-origin:right center}
+#combo i{display:block;height:3px;margin-top:3px;background:#ffd166;border-radius:2px;transform-origin:right center}
+#combo.end b{font-size:26px;color:#ffb3c0}
+#combo.end i{visibility:hidden}
+/* thông báo mốc: bên phải, giữa màn hình */
+#toasts{position:absolute;right:calc(14px + var(--sar));top:38%;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.toast{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;background:#0b0812d9;border:1px solid var(--line);border-left:3px solid #5cff9d;border-radius:8px;font:20px/1 var(--px);color:var(--text);text-shadow:0 1px 0 #000;animation:toastA 2.8s ease forwards}
+.toast.gold{border-left-color:var(--gold);color:#ffe7a8}
+.toast img{width:22px;height:22px}
+@keyframes toastA{0%{opacity:0;transform:translateX(24px)}8%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+/* thẻ đợt mới lúc nghỉ giữa đợt */
+#waveCard{position:absolute;top:30%;left:0;right:0;text-align:center;opacity:0;pointer-events:none;padding:0 16px}
+#waveCard span{display:block;font:20px/1 var(--px);color:#9fd8ff;letter-spacing:3px;text-shadow:0 2px 0 #000}
+#waveCard b{display:block;font:clamp(30px,6vw,48px)/1.1 var(--px);color:#e6f6ff;letter-spacing:2px;text-shadow:0 0 18px #4dc3ff66,0 4px 0 #000}
+#waveCard i{display:block;height:2px;width:min(360px,60vw);margin:8px auto;background:#4dc3ff;transform:scaleX(0)}
+#waveCard.show{animation:bossCardA 3.2s ease forwards}
+#waveCard.show i{animation:sweep .4s .2s ease-out forwards}
+/* thanh kinh nghiệm: lấp lánh khi gần đầy, loé khi lên cấp */
+#xpbar.near #xpfill{background:linear-gradient(90deg,#2a6cff,var(--xp) 40%,#e6f6ff 50%,var(--xp) 60%,#2a6cff);background-size:300% 100%;animation:xpShim 1.1s linear infinite}
+@keyframes xpShim{from{background-position:100% 0}to{background-position:-200% 0}}
+#xpbar.lvup{animation:xpFlash .5s ease-out}
+@keyframes xpFlash{0%{background:#e6f6ffcc;box-shadow:0 0 16px #4dc3ff}100%{background:#000b;box-shadow:none}}
+/* máu thấp: thanh máu run nhẹ; hết nguy kịch: viền xanh loé lên rồi tắt */
+body.lowhp #hpbar{animation:tremble .18s linear infinite}
+@keyframes tremble{0%,100%{transform:none}25%{transform:translate(1px,-1px)}75%{transform:translate(-1px,1px)}}
+#lowhp.clear{background:radial-gradient(ellipse at center,transparent 55%,rgba(92,255,157,.4) 100%);animation:lowClear .9s ease-out}
+@keyframes lowClear{0%{opacity:1}100%{opacity:0}}
+body.lowhp #lowhp.clear{background:radial-gradient(ellipse at center,transparent 55%,rgba(220,20,50,.55) 100%)}
+/* nghi thức mở rương */
+#chestCere{background:#05040a99;z-index:6}
+.cere{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}
+.cere .beam{position:absolute;left:50%;top:-40vh;width:120px;height:calc(40vh + 120px);margin-left:-60px;background:linear-gradient(180deg,transparent,#ffd16655 70%,#fff6d0aa);filter:blur(6px);transform-origin:bottom center;animation:beamA 1.2s ease-out forwards;pointer-events:none}
+@keyframes beamA{0%{opacity:0;transform:scaleX(.2)}25%{opacity:1;transform:scaleX(1)}100%{opacity:.6}}
+#cereCv{width:96px;height:96px;image-rendering:pixelated;position:relative;animation:chestPop .35s ease-out}
+@keyframes chestPop{0%{transform:scale(.6) translateY(20px)}70%{transform:scale(1.12)}100%{transform:none}}
+.cere .slots{display:flex;gap:12px;position:relative}
+.cere .slot{width:56px;height:56px;display:grid;place-items:center;border-radius:10px;background:#000;border:2px solid var(--line)}
+.cere .slot img{width:40px;height:40px}
+.cere .slot.set{border-color:var(--gold);box-shadow:0 0 14px #ffd16688;animation:slotSet .25s ease-out}
+@keyframes slotSet{0%{transform:scale(1.25)}100%{transform:none}}
+.cere h2{color:var(--gold);text-shadow:0 0 18px #ffd16688,0 3px 0 #000;position:relative}
+.cere .sub{margin:0;position:relative}
+@media (prefers-reduced-motion:reduce){#xpbar.near #xpfill,#xpbar.lvup,body.lowhp #hpbar,.toast,#waveCard.show,.cere .beam,#cereCv,.cere .slot.set{animation:none}.toast{opacity:1}#waveCard.show{opacity:1;animation:bannerFade 3.2s forwards}}
+@media (max-width:640px){#combo{top:calc(120px + var(--sat))}#combo b{font-size:28px}#toasts{top:46%}}
 /* nâng cấp vũ khí: icon bay lên trên đầu người chơi (người chơi luôn ở giữa màn hình) */
 .upfloat{position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-70px 0 0 -18px;display:grid;place-items:center;border-radius:9px;background:#000a;border:2px solid var(--c,#ffd166);box-shadow:0 0 12px var(--c,#ffd166);animation:upF .9s ease-out forwards}
 .upfloat img{width:28px;height:28px}

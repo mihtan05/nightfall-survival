@@ -5,7 +5,7 @@
 const G = {
   state: 'menu', t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
   boss: null, won: false, chestOpen: false, typeCount: {}, stepId: 0, stats: { dmg: {}, taken: {}, since: {} }, cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1,
-  hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0, zapFlashA: 0, freezeT: 0, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0,
+  hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0, zapFlashA: 0, freezeT: 0, combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0,
   wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   player: null,
   sfx: new Pool(() => ({})),
@@ -67,6 +67,7 @@ function resetWorld() {
   Object.assign(G, {
     t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
     boss: null, won: false, chestOpen: false, typeCount: {}, hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0,
+    combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, chests: 0,
     freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0,
     cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1, rerolls: CFG.rerolls + metaRoll(metaLv('roll')).rerolls,
     stats: { dmg: {}, taken: {}, since: { [SETUP.start]: 0 } },
@@ -613,6 +614,7 @@ function addText(x, y, txt, color) {
   const t = G.texts.get();
   t.x = x + rand(-4, 4); t.y = y; t.txt = txt; t.life = 0.6; t.color = color || '#fff';
   t.owner = null; t.size = 1; t.pop = 0; t.vx = rand(-8, 8); t.num = /^\+?\d+$/.test(txt);
+  return t;
 }
 
 /* Số sát thương: cỡ và màu theo độ lớn; nhiều đòn liên tiếp vào cùng một quái được GỘP
@@ -687,6 +689,7 @@ function killEnemy(e) {
     return;
   }
   G.kills++;
+  addCombo();
   // Xác quái co lại + mờ dần (vẽ trong drawFx), logic thì bỏ quái ngay
   const df = addFx('die', e.x, e.y, e.boss ? 0.6 : 0.22);
   df.kind = e.type; df.face = e.face; df.anim = e.anim; df.r = e.r;
@@ -724,8 +727,30 @@ function killEnemy(e) {
       if (G.healAmt < H.cap) { const h = Math.min(H.per, H.cap - G.healAmt); G.healAmt += h; P.hp = Math.min(P.maxHp, P.hp + h); }
     }
     if (Math.random() < CFG.itemChance * (1 + 0.05 * metaRoll(metaLv('roll')).item)) dropPickup(e.x + 10, e.y, rollItem(), 0);
-    SFX.play('kill');
+    SFX.play('kill', 1 + Math.min(CFG.combo.pitchMax, G.combo * CFG.combo.pitch)); // chuỗi dài: tiếng hạ quái cao dần
   }
+}
+/* Chuỗi hạ gục (V5 Phase 7): đếm quái hạ liên tiếp, mất sau CFG.combo.window giây không hạ.
+   Ở mỗi mốc: kéo mọi ngọc trong CFG.combo.pull đơn vị về người chơi (luôn), chữ lớn "x50!" + vòng màu (giới hạn CFG.callGap). */
+function addCombo() {
+  const C = CFG.combo; G.combo++; G.comboT = C.window;
+  const step = C.steps[G.comboStep];
+  if (step === undefined || G.combo < step) return;
+  G.comboStep++;
+  const p = G.player, col = C.colors[step] || '#ffd166';
+  for (const g of G.gems.items) if (g.kind === 'xp' && (g.x - p.x) ** 2 + (g.y - p.y) ** 2 < C.pull * C.pull) { g.pulled = true; g.sp = Math.max(g.sp, 250); }
+  if (G.t - G.calloutT >= CFG.callGap) {
+    G.calloutT = G.t;
+    const t = addText(p.x, p.y - 36, `x${step}!`, col); if (t) { t.size = 2.2; t.life = 1; t.vx = 0; }
+    const f = addFx('ring', p.x, p.y, 0.45); f.maxR = C.pull; f.color = col;
+    SFX.play('combo');
+  }
+}
+function updateCombo(dt) {
+  if (G.combo <= 0) return;
+  if ((G.comboT -= dt) > 0) return;
+  if (G.combo >= CFG.combo.endShow) G.comboEnd = G.combo; // HUD hiện số cuối một lúc
+  G.combo = 0; G.comboStep = 0;
 }
 
 function updateBullets(dt) {
@@ -825,7 +850,7 @@ function updateGems(dt) {
       }
       else if (g.kind === 'heart') { const h = 30; p.hp = Math.min(p.maxHp, p.hp + h); addText(p.x, p.y - 24, '+' + h, '#5cff9d'); playFx('heartUp', p.x, p.y, 0, p, 4); burst(p.x, p.y, '#ff6b81', 12, 120, 3, 0.5); SFX.play('heal'); }
       else if (ITEMS[g.kind]) pickItem(g.kind);
-      else if (g.kind === 'chest') { G.pending += 2; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); burst(g.x, g.y, '#ffd166', 40, 220, 3.5, 0.8); banner('Rương báu: +2 nâng cấp!'); SFX.play('chest'); G.chestOpen = true; }
+      else if (g.kind === 'chest') { G.chests = (G.chests || 0) + 1; G.pending += 2; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3); burst(g.x, g.y, '#ffd166', 40, 220, 3.5, 0.8); banner('Rương báu: +2 nâng cấp!'); SFX.play('chest'); G.chestOpen = true; }
     }
   }
 }
@@ -878,6 +903,7 @@ function update(dt) {
   updateBooms(dt);
   updateFx(dt);
   updateDecals(dt);
+  updateCombo(dt);
   updateGems(dt);
   updateParts(dt);
   updateSfx(dt);

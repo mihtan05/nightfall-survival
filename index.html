@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0a12">
 <title>Đêm Sinh Tồn</title>
-<link rel="stylesheet" href="css/game.css?v=v5f">
+<link rel="stylesheet" href="css/game.css?v=v5g">
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -33,6 +33,9 @@
   <div id="banner"></div>
   <div id="bossbar"><div class="nm" id="bossName"></div><div class="bar"><div id="bossghost"></div><div id="bossfill"></div></div></div>
   <div id="bossCard"><b></b><i></i><span></span></div>
+  <div id="waveCard"><span></span><b></b><i></i></div>
+  <div id="combo"><b id="comboN"></b><i id="comboBar"></i></div>
+  <div id="toasts" aria-live="polite"></div>
   <div id="fps"></div>
 </div>
 <div id="joy"><div id="knob"></div></div>
@@ -61,6 +64,16 @@
     <p class="sub souls">Linh hồn: <b id="mSouls">0</b></p>
     <div class="metagrid" id="metaGrid"></div>
     <div class="menubtns"><button class="btn ghost" id="metaBack">Quay lại</button><button class="linkbtn" id="metaReset" type="button">Đặt lại</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="chestCere" aria-live="polite">
+  <div class="cere">
+    <div class="beam"></div>
+    <canvas id="cereCv" width="96" height="96"></canvas>
+    <div class="slots" id="cereSlots"></div>
+    <h2>Rương báu!</h2>
+    <p class="sub">Bấm phím bất kỳ hoặc chạm để bỏ qua</p>
   </div>
 </div>
 
@@ -108,15 +121,15 @@
   </div>
 </div>
 
-<script src="js/util.js?v=v5f"></script>
-<script src="js/atlas.js?v=v5f"></script>
-<script src="js/fx-atlas.js?v=v5f"></script>
-<script src="js/data.js?v=v5f"></script>
-<script src="js/audio.js?v=v5f"></script>
-<script src="js/render.js?v=v5f"></script>
-<script src="js/game.js?v=v5f"></script>
-<script src="js/input.js?v=v5f"></script>
-<script src="js/icons.js?v=v5f"></script>
-<script src="js/ui.js?v=v5f"></script>
+<script src="js/util.js?v=v5g"></script>
+<script src="js/atlas.js?v=v5g"></script>
+<script src="js/fx-atlas.js?v=v5g"></script>
+<script src="js/data.js?v=v5g"></script>
+<script src="js/audio.js?v=v5g"></script>
+<script src="js/render.js?v=v5g"></script>
+<script src="js/game.js?v=v5g"></script>
+<script src="js/input.js?v=v5g"></script>
+<script src="js/icons.js?v=v5g"></script>
+<script src="js/ui.js?v=v5g"></script>
 </body>
 </html>

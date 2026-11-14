@@ -87,7 +87,7 @@ const SFX = {
     zap:     { gap: 0.1,  fn: (s, t) => { s.noise(0.25, 0.28, 4000, t); s.tone('sawtooth', 130, 40, 0.25, 0.12, t); } },
     nova:    { gap: 0.2,  fn: (s, t) => { s.tone('sine', 170, 40, 0.4, 0.35, t); s.noise(0.3, 0.12, 700, t); } },
     hit:     { gap: 0.03, fn: (s, t) => s.noise(0.05, 0.13, 2500, t) },
-    kill:    { gap: 0.04, fn: (s, t) => { s.noise(0.12, 0.16, 900, t); s.tone('triangle', 220, 60, 0.12, 0.1, t); } },
+    kill:    { gap: 0.04, fn: (s, t, r) => { s.noise(0.12, 0.16, 900 * r, t); s.tone('triangle', 220 * r, 60, 0.12, 0.1, t); } },
     gem:     { gap: 0.03, fn: (s, t, r) => s.tone('sine', rand(1050, 1250) * r, 1800 * r, 0.07, 0.09, t) },
     heal:    { gap: 0.2,  fn: (s, t) => s.arp([660, 880, 1100], 0.06, 'sine', 0.12, t) },
     level:   { gap: 0.2,  fn: (s, t) => s.arp([523, 659, 784, 1047], 0.08, 'square', 0.07, t) },
@@ -106,6 +106,10 @@ const SFX = {
     bomb:      { gap: 0.5,  fn: (s, t) => { s.noise(1.0, 0.4, 1200, t); s.tone('sawtooth', 160, 30, 0.8, 0.25, t); } },
     freeze:    { gap: 0.5,  fn: (s, t) => { s.arp([1568, 1319, 1047, 784], 0.05, 'sine', 0.12, t); s.noise(0.5, 0.08, 8000, t); } },
     dash:    { gap: 0.1,  fn: (s, t) => { s.noise(0.08, 0.12, 3000, t); s.tone('triangle', 500, 900, 0.08, 0.06, t); } },
+    // V5 Phase 7 (chỉ âm tổng hợp, không có file): mốc combo, nghi thức mở rương, hết nguy kịch
+    combo:   { gap: 0.3,  fn: (s, t) => s.arp([784, 1175, 1568], 0.045, 'square', 0.06, t) },
+    chestArp:{ gap: 1,    fn: (s, t) => { s.arp([392, 494, 587, 784, 988, 1175, 1568], 0.09, 'triangle', 0.15, t); s.tone('sine', 1568, 2093, 0.6, 0.06, t + 0.7); } },
+    calm:    { gap: 1,    fn: (s, t) => s.arp([523, 659], 0.12, 'sine', 0.07, t) },
     win:     { gap: 2,    fn: (s, t) => s.arp([392, 523, 659, 784, 1047, 784, 1047, 1319], 0.12, 'triangle', 0.18, t) },
   },
 

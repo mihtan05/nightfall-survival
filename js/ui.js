@@ -17,13 +17,21 @@ function updateHud() {
   const key = [wpct, Math.floor(G.t), G.level, Math.ceil(p.hp), p.maxHp, G.kills, G.xp, b ? Math.ceil(b.hp) : -1, w.i, w.phase].join('|');
   if (key !== hudCache) {
     hudCache = key;
-    ui.xpfill.style.width = (G.xp / G.xpNeed * 100).toFixed(1) + '%';
+    const xk = clamp(G.xp / G.xpNeed, 0, 1);
+    if (G.level !== hudLevel) { const up = G.level > hudLevel; hudLevel = G.level; if (up && !REDUCED_MOTION) xpCarry(); else ui.xpfill.style.width = (xk * 100).toFixed(1) + '%'; }
+    else if (!xpCarrying) ui.xpfill.style.width = (xk * 100).toFixed(1) + '%';
+    const near = xk >= CFG.xpNear; if (near !== xpNear) { xpNear = near; $('xpbar').classList.toggle('near', near); }
     ui.lvl.textContent = 'Lv ' + G.level;
     ui.timer.textContent = fmtTime(G.t);
     const hpk = clamp(p.hp / p.maxHp, 0, 1);
     ui.hpfill.style.width = (hpk * 100).toFixed(1) + '%';
     ui.hp.textContent = Math.ceil(p.hp) + '/' + p.maxHp;
-    document.body.classList.toggle('lowhp', G.state === 'play' && hpk < 0.25);
+    // Máu thấp (có trễ): bật dưới CFG.lowHp.on, chỉ tắt khi hồi trên CFG.lowHp.off — tắt kèm âm nhẹ + loé xanh
+    const low = G.state === 'play' && (lowOn ? hpk < CFG.lowHp.off : hpk < CFG.lowHp.on);
+    if (low !== lowOn) {
+      if (lowOn && G.state === 'play') { SFX.play('calm'); const l = $('lowhp'); l.classList.remove('clear'); void l.offsetWidth; l.classList.add('clear'); }
+      lowOn = low; document.body.classList.toggle('lowhp', low);
+    }
     ui.kill.textContent = G.kills;
     ui.wave.textContent = `ĐỢT ${waveLabel(w.i)}` + (w.phase === 'boss' ? ' · BOSS' : w.phase === 'rest' ? ' · NGHỈ' : '');
     ui.waveBar.parentNode.style.visibility = wpct >= 0 ? 'visible' : 'hidden';
@@ -33,6 +41,7 @@ function updateHud() {
     ui.bossbar.classList.toggle('rage', !!(b && b.raged));
   }
   ui.xpfill.classList.toggle('gain', G.gainT > 0);
+  updateComboHud();
   document.body.classList.toggle('inplay', G.state === 'play');
   const cdk = Math.ceil(p.dashCd / CFG.dash.cd * 20) / 20;
   if (cdk !== dashCache) { dashCache = cdk; dashBtn.style.setProperty('--cd', cdk); dashBtn.classList.toggle('cd', cdk > 0); }
@@ -50,6 +59,104 @@ function updateHud() {
     }));
   }
 }
+/* ---------- V5 Phase 7: chuỗi hạ gục, thanh kinh nghiệm, máu thấp, thông báo mốc, thẻ đợt mới, nghi thức mở rương ---------- */
+let hudLevel = 1, xpNear = false, xpCarrying = false, lowOn = false;
+// Lên cấp: thanh đầy hẳn + loé, rồi về 0 và chạy tới phần dư — thấy được kinh nghiệm thừa chuyển sang cấp mới
+function xpCarry() {
+  const bar = $('xpbar'); xpCarrying = true;
+  ui.xpfill.style.width = '100%'; bar.classList.remove('lvup'); void bar.offsetWidth; bar.classList.add('lvup');
+  setTimeout(() => {
+    ui.xpfill.style.transition = 'none'; ui.xpfill.style.width = '0%'; void ui.xpfill.offsetWidth; ui.xpfill.style.transition = '';
+    ui.xpfill.style.width = (clamp(G.xp / G.xpNeed, 0, 1) * 100).toFixed(1) + '%'; xpCarrying = false;
+  }, 160);
+}
+const comboEl = $('combo'), comboN = $('comboN'), comboBar = $('comboBar');
+let comboShown = -1, comboBarK = -1, comboEndUntil = 0;
+// Bộ đếm chuỗi: chỉ ghi DOM khi số đổi; vạch thời gian còn lại ghi theo bước 1/40
+function updateComboHud() {
+  const C = CFG.combo, now = performance.now();
+  if (G.comboEnd) { // vừa đứt chuỗi dài: hiện số cuối một lúc
+    comboN.textContent = `Chuỗi x${G.comboEnd}`; comboEl.className = 'show end'; comboEndUntil = now + 1400; G.comboEnd = 0; comboShown = -1; return;
+  }
+  if (G.combo >= C.show && G.state !== 'over') {
+    if (G.combo !== comboShown) {
+      comboShown = G.combo; comboN.textContent = 'x' + G.combo;
+      if (comboEl.className !== 'show') comboEl.className = 'show';
+      if (!REDUCED_MOTION && comboN.animate) comboN.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], 140);
+    }
+    const k = Math.round(clamp(G.comboT / C.window, 0, 1) * 40) / 40;
+    if (k !== comboBarK) { comboBarK = k; comboBar.style.transform = `scaleX(${k})`; }
+    return;
+  }
+  if (comboEl.className && now >= comboEndUntil) { comboEl.className = ''; comboShown = -1; }
+}
+// Thông báo mốc: hàng đợi, cách nhau ít nhất CFG.toast.gap giây, nhường chỗ cho chữ lớn của combo (giới hạn chung)
+const toastQ = [], toastDone = new Set();
+let toastNext = 0, toastCheckT = 0, runBest = null;
+function bestPassed() {
+  const b = runBest; if (!b || !(b.time > 0) || b.won) return false;
+  const wv = G.wave.i + 1, bw = b.wave || 1;
+  return wv > bw || (wv === bw && G.t > b.time);
+}
+function checkToasts(now) {
+  if (G.state !== 'play' || !G.player) return;
+  if (now >= toastCheckT) { toastCheckT = now + 250; for (const T of TOASTS) if (!toastDone.has(T.id) && T.test()) { toastDone.add(T.id); toastQ.push(T); } }
+  if (toastQ.length && now >= toastNext && G.t - G.calloutT >= 0.5 && !cere.on) { showToast(toastQ.shift()); toastNext = now + CFG.toast.gap * 1000; }
+}
+function showToast(T) {
+  const box = $('toasts'), d = mkEl('div', 'toast' + (T.gold ? ' gold' : ''));
+  if (T.icon) d.append(iconEl(T.icon, WEAPONS[T.icon] ? WEAPONS[T.icon].icon : ''));
+  d.append(mkEl('span', '', typeof T.text === 'function' ? T.text() : T.text));
+  box.append(d); while (box.children.length > CFG.toast.max) box.firstChild.remove();
+  setTimeout(() => d.remove(), CFG.toast.life * 1000);
+}
+// Nghỉ giữa đợt: thẻ tên đợt sắp tới (trong lúc nền đợt mới hiện dần)
+let waveCardFor = -1;
+function showWaveCard(i) {
+  const c = $('waveCard');
+  c.querySelector('span').textContent = `ĐỢT ${waveLabel(i)} SẮP ĐẾN`;
+  c.querySelector('b').textContent = i < WAVE_DEFS.length && !G.endless ? WAVE_DEFS[i].name : 'Đêm vô tận';
+  c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+}
+/* Nghi thức mở rương: chạy trong frame() (không trong update), thế giới đứng yên vì đang ở trạng thái 'levelup'.
+   Rương bật mở + cột sáng, các ô icon quay kiểu máy xèng rồi dừng ở đúng các thẻ sắp chọn, chuỗi nốt đi lên;
+   xong (hoặc bấm phím / chạm) thì mở bảng thẻ như thường. __vs.tick / runChecks không đi qua đây. */
+const cere = { on: false, done: false, t: 0, spinT: 0, slots: [], pool: [] };
+function startCere() {
+  Object.assign(cere, { on: true, done: true, t: 0, spinT: 0, slots: [] });
+  show('levelup', false); cardLockUntil = Infinity;
+  cere.pool = UPGRADES.map(u => u.id).filter(id => ICONS[id]);
+  const box = $('cereSlots'); box.replaceChildren();
+  G.choices.slice(0, 3).forEach((u, i) => {
+    const s = mkEl('span', 'slot'), img = iconEl(u.id, u.icon); s.append(img); box.append(s);
+    cere.slots.push({ el: s, img, u, stop: REDUCED_MOTION ? 0 : 0.45 + 0.2 * i, settled: false });
+  });
+  drawCereChest(0); show('chestCere', true); SFX.play('chestArp');
+}
+function updateCere(dt) {
+  cere.t += dt; cere.spinT += dt;
+  for (const s of cere.slots) {
+    if (s.settled) continue;
+    if (cere.t >= s.stop) { s.settled = true; if (s.img.tagName === 'IMG' && ICONS[s.u.id]) s.img.src = ICONS[s.u.id]; s.el.classList.add('set'); SFX.play('select'); }
+    else if (cere.spinT >= CFG.chestCere.spin && s.img.tagName === 'IMG' && cere.pool.length) s.img.src = ICONS[cere.pool[Math.floor(Math.random() * cere.pool.length)]];
+  }
+  if (cere.spinT >= CFG.chestCere.spin) cere.spinT = 0;
+  drawCereChest(cere.t);
+  if (cere.t >= CFG.chestCere.dur) endCere();
+}
+function endCere() {
+  if (!cere.on) return;
+  cere.on = false; show('chestCere', false);
+  if (G.state === 'levelup') { renderCards(); show('levelup', true); }
+}
+function drawCereChest(t) {
+  const c = $('cereCv'), g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.imageSmoothingEnabled = false;
+  const img = ATLAS_SRC && Assets.imgs[ATLAS_SRC], f = img && ATLAS.frames['chest_full_open_anim_f' + (t < 0.2 ? 0 : t < 0.35 ? 1 : 2)];
+  if (f) { const k = Math.floor(80 / Math.max(f[2], f[3])); g.drawImage(img, f[0], f[1], f[2], f[3], (96 - f[2] * k) / 2, (96 - f[3] * k) / 2, f[2] * k, f[3] * k); }
+  else { g.save(); g.translate(48, 52); g.scale(3, 3); SHAPES.chest(g, { x: 0, y: 0, anim: 0 }); g.restore(); }
+}
+$('chestCere').addEventListener('pointerdown', e => { e.preventDefault(); endCere(); });
+
 // Thẻ tên boss lúc xuất hiện (thay cho banner)
 function showBossCard(def) {
   const c = $('bossCard');
@@ -412,12 +519,15 @@ function togglePause() {
 function startGame() {
   SFX.init();
   resetWorld();
+  hudLevel = 1; lowOn = false; xpCarrying = false; document.body.classList.remove('lowhp'); comboEl.className = ''; comboShown = -1;
+  toastQ.length = 0; toastDone.clear(); toastNext = toastCheckT = 0; $('toasts').replaceChildren(); waveCardFor = -1; runBest = store.get(bestKey(), { time: 0 });
+  if (cere.on) { cere.on = false; show('chestCere', false); }
   ['menu', 'over', 'paused', 'levelup'].forEach(id => show(id, false));
   G.state = 'play';
 }
 
 function endRun(won) {
-  G.state = 'over'; G.won = won; endJoy(); document.body.classList.remove('lowhp');
+  G.state = 'over'; G.won = won; endJoy(); document.body.classList.remove('lowhp'); lowOn = false; comboEl.className = '';
   if (won) { SFX.play('win'); for (const e of G.enemies.items) burst(e.x, e.y, ENEMIES[e.type].color, 3, 100, 3, 0.6); G.enemies.clear(); }
   else SFX.play('death');
   const wave = G.wave.i + 1;
@@ -513,6 +623,12 @@ function frame(now) {
     for (const f of G.fx.items) if (f.type !== 'nova' && (f.life -= dt) <= 0) f.dead = true;
     G.fx.sweep(); G.shake = Math.max(0, G.shake - 30 * dt);
   }
+  // V5 Phase 7: nghi thức mở rương, thẻ đợt mới, thông báo mốc (phần trình bày — không nằm trong update())
+  if (!G.chestOpen) cere.done = false;
+  if (G.state === 'levelup' && G.chestOpen && !cere.on && !cere.done) startCere();
+  if (cere.on) updateCere(dt);
+  if (G.state === 'play' && G.wave.phase === 'rest' && G.wave.t >= 1.2 && waveCardFor !== G.wave.i) { waveCardFor = G.wave.i; showWaveCard(G.wave.i + 1); }
+  checkToasts(now);
   SFX.sync(); // nhạc nền theo trạng thái game (đổi bản khi có boss, nhỏ lại khi tạm dừng)
   // Nội suy giữa 2 bước logic: màn 75/120/144Hz không còn khung "đứng hình" xen khung "nhảy cóc"
   render(G.state === 'play' ? acc / CFG.step : 1);

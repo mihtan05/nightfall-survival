@@ -413,6 +413,27 @@ const WEAPON_LOOK = {
   ] },
 };
 
+/* ---------- V5 Phase 7: phần thưởng trong ván (chỉ là phản hồi; kéo ngọc ở mốc combo chỉ đỡ phải đi nhặt) ---------- */
+// Chuỗi hạ gục: mất chuỗi sau `window` giây không hạ quái; HUD hiện từ `show`; ở mỗi mốc `steps`: chữ lớn + vòng + kéo ngọc trong `pull` đơn vị.
+// Âm hạ quái cao dần: tốc phát = 1 + min(pitchMax, combo × pitch). endShow: đứt chuỗi từ bấy nhiêu thì hiện số cuối.
+CFG.combo = { window: 2.5, show: 10, steps: [25, 50, 100, 200], pull: 200, pitch: 0.004, pitchMax: 0.3, endShow: 25,
+  colors: { 25: '#5cff9d', 50: '#4dc3ff', 100: '#c86bff', 200: '#ffd166' } };
+CFG.callGap = 1;          // giới hạn chung: tối đa 1 dòng chữ lớn (mốc combo) mỗi giây; thông báo nhỏ cũng giãn ít nhất bấy nhiêu
+CFG.chestCere = { dur: 1.2, spin: 0.06 };   // mở rương: dừng thế giới bấy nhiêu giây thật (bỏ qua bằng phím/chạm); đổi icon mỗi spin giây
+CFG.xpNear = 0.85;        // thanh kinh nghiệm lấp lánh khi đầy hơn mức này
+CFG.lowHp = { on: 0.25, off: 0.4 }; // viền đỏ + thanh máu run khi máu < on; tắt (kèm âm nhẹ) khi máu > off
+CFG.toast = { gap: 1, life: 2.8, max: 3 }; // thông báo mốc bên phải màn hình: cách nhau ít nhất gap giây, tối đa max cái cùng lúc
+/* Thông báo mốc (không chặn chơi). test() đọc trạng thái ván; mỗi id chỉ hiện một lần mỗi ván. */
+const TOASTS = [
+  { id: 'k100',  text: 'Hạ 100 quái',  test: () => G.kills >= 100 },
+  { id: 'k500',  text: 'Hạ 500 quái',  test: () => G.kills >= 500 },
+  { id: 'k1000', text: 'Hạ 1000 quái', test: () => G.kills >= 1000 },
+  ...[1, 3, 5, 8, 10, 13].map(m => ({ id: 'm' + m, text: `Sống sót ${m} phút`, test: () => G.t >= m * 60 })),
+  ...['bolt', 'orbit', 'lightning', 'knife', 'aura', 'nova'].map(id => ({ id: 'l8' + id, icon: id, text: () => `${WEAPONS[id].name} đạt cấp 8`, test: () => G.player.levels[id] >= 8 })),
+  { id: 'evo',   text: 'Tiến hoá đầu tiên của ván', test: () => G.evolved },
+  { id: 'best',  text: 'Kỷ lục mới!', gold: true, test: () => bestPassed() },
+];
+
 const EVOLUTIONS = {
   bolt:      { passive: 'might', name: 'Huyết Vũ',     desc: '+2 tiễn, hồi chiêu -25%. Tiễn vỡ thành 2 mảnh khi trúng',   apply: w => { w.count += 2; w.cd *= 0.75; } },
   orbit:     { passive: 'area',  name: 'Nguyệt Thực',  desc: 'Thêm vòng ngoài 3 lưỡi xoay ngược, chém nhanh hơn',         apply: w => { w.hitCd = 0.36; } },

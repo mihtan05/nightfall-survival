@@ -434,6 +434,38 @@ const TOASTS = [
   { id: 'best',  text: 'Kỷ lục mới!', gold: true, test: () => bestPassed() },
 ];
 
+/* ---------- V5 Phase 9: nhiệm vụ + sổ tay ----------
+   Nhiệm vụ: luôn có CFG.missions.active cái đang làm (lưu trong vs_meta). Mỗi cái tính trong MỘT ván: prog(r) trên kết quả ván
+   (r = missionRun() trong ui.js: kby = số quái hạ theo vũ khí, noHit = chuỗi giây dài nhất không trúng đòn, …), xong khi prog ≥ goal.
+   Xong thì trả `reward` linh hồn một lần, lưu ngay, và thay bằng nhiệm vụ khác (nhiệm vụ mới chỉ tính từ ván sau). */
+CFG.missions = { active: 3 };
+const MISSIONS = [
+  { id: 'bolt400',      text: 'Hạ 400 quái bằng Huyết Tiễn',        goal: 400, reward: 10, prog: r => r.kby.bolt || 0 },
+  { id: 'lightning300', text: 'Hạ 300 quái bằng Lôi Phạt',          goal: 300, reward: 20, prog: r => r.kby.lightning || 0 },
+  { id: 'knife250',     text: 'Hạ 250 quái bằng Dao Bạc',           goal: 250, reward: 15, prog: r => r.kby.knife || 0 },
+  { id: 'aura250',      text: 'Hạ 250 quái bằng Hào Quang Độc',     goal: 250, reward: 15, prog: r => r.kby.aura || 0 },
+  { id: 'orbit250',     text: 'Hạ 250 quái bằng Vòng Huyết Nguyệt', goal: 250, reward: 15, prog: r => r.kby.orbit || 0 },
+  { id: 'nova200',      text: 'Hạ 200 quái bằng Sóng Xung Kích',    goal: 200, reward: 15, prog: r => r.kby.nova || 0 },
+  { id: 'evo',          text: 'Tiến hoá một vũ khí',                goal: 1,   reward: 25, prog: r => r.evo ? 1 : 0 },
+  { id: 'nohit60',      text: 'Không trúng đòn trong 60 giây liên tục', goal: 60, reward: 20, prog: r => Math.floor(r.noHit) },
+  { id: 'chest3',       text: 'Mở 3 rương trong một ván',           goal: 3,   reward: 20, prog: r => r.chests },
+  { id: 'combo100',     text: 'Đạt chuỗi hạ gục x100',              goal: 100, reward: 15, prog: r => r.comboMax },
+  { id: 'elite3',       text: 'Hạ 3 quái tinh anh trong một ván',   goal: 3,   reward: 15, prog: r => r.elites },
+  { id: 'items6',       text: 'Nhặt 6 vật phẩm trong một ván',      goal: 6,   reward: 10, prog: r => r.items },
+  { id: 'boss2',        text: 'Hạ 2 boss trong một ván',            goal: 2,   reward: 25, prog: r => r.bosses },
+  { id: 'lvl20',        text: 'Đạt cấp 20',                         goal: 20,  reward: 15, prog: r => r.level },
+  { id: 'dash30',       text: 'Lướt né 30 lần trong một ván',       goal: 30,  reward: 10, prog: r => r.dashes },
+];
+// Sổ tay: các mục theo nhóm. Khoá trong vs_meta.book: vũ khí 'w:id', tiến hoá 'evo:id', quái/boss = mã quái, vật phẩm = mã vật phẩm.
+const BOOK = [
+  { title: 'Vũ khí',   keys: ['bolt', 'orbit', 'lightning', 'knife', 'aura', 'nova'].map(id => 'w:' + id) },
+  { title: 'Tiến hoá', keys: ['bolt', 'orbit', 'lightning', 'knife', 'aura', 'nova'].map(id => 'evo:' + id) },
+  { title: 'Quái',     keys: ['bat', 'slime', 'skeleton', 'ghost', 'golem', 'bomber', 'splitter', 'charger'] },
+  { title: 'Boss',     keys: ['bossZombie', 'bossNecro', 'bossOgre', 'boss'] },
+  { title: 'Vật phẩm', keys: ['potion', 'magnet', 'shield', 'speed', 'rage', 'bomb', 'freeze', 'xp2'] },
+];
+CFG.attract = { enemies: 7, drift: 0.05, range: 260 };   // menu: số quái lang thang, tốc độ lia camera, bán kính vùng lia (đơn vị thế giới)
+
 const EVOLUTIONS = {
   bolt:      { passive: 'might', name: 'Huyết Vũ',     desc: '+2 tiễn, hồi chiêu -25%. Tiễn vỡ thành 2 mảnh khi trúng',   apply: w => { w.count += 2; w.cd *= 0.75; } },
   orbit:     { passive: 'area',  name: 'Nguyệt Thực',  desc: 'Thêm vòng ngoài 3 lưỡi xoay ngược, chém nhanh hơn',         apply: w => { w.hitCd = 0.36; } },
@@ -502,7 +534,7 @@ const UPGRADES = [
   ...Object.entries(WEAPONS).map(([id, w]) => ({
     id, kind: 'weapon', name: w.name, icon: w.icon, max: w.levels.length + 1,
     desc: l => l === 1 ? w.desc : w.levels[l - 2].d,
-    apply: (p, l) => { if (l === 1) { p.weapons[id] = newWeapon(id); G.stats.since[id] = G.t; } else w.levels[l - 2].f(p.weapons[id]); p.weapons[id].lv = l; },
+    apply: (p, l) => { if (l === 1) { p.weapons[id] = newWeapon(id); G.stats.since[id] = G.t; bookAdd('w:' + id); } else w.levels[l - 2].f(p.weapons[id]); p.weapons[id].lv = l; },
   })),
   ...PASSIVES.map(x => ({ ...x, kind: 'passive' })),
 ];

@@ -531,7 +531,7 @@ function drawGround(camX, camY) {
 
 /* Viền tối (màu theo đợt) và viền đỏ khi bị đánh: vẽ sẵn ở 1/4 độ phân giải khi đổi cỡ cửa sổ / đổi đợt. */
 let vigDark = null, vigRed = null, vigWave = -1;
-function buildVignettes() {
+function buildVignettes(wi = waveIdx()) {
   const w = Math.max(1, Math.ceil(W / 4)), h = Math.max(1, Math.ceil(H / 4));
   const make = (color, inner) => {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -541,12 +541,12 @@ function buildVignettes() {
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
     return c;
   };
-  vigWave = waveIdx();
+  vigWave = wi;
   const L = WAVE_DEFS[vigWave].ground.light;
   vigDark = make(`rgba(${L},0.55)`, 0.30); vigRed = make('rgba(200,20,50,1)', 0.35);
 }
-function drawVignette(hurtT) {
-  if (!vigDark || vigWave !== waveIdx()) buildVignettes();
+function drawVignette(hurtT, wi = waveIdx()) {
+  if (!vigDark || vigWave !== wi) buildVignettes(wi);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(vigDark, 0, 0, W, H);
   if (hurtT > 0) { ctx.globalAlpha = Math.min(1, 0.25 + hurtT); ctx.drawImage(vigRed, 0, 0, W, H); ctx.globalAlpha = 1; }
@@ -555,12 +555,12 @@ function drawVignette(hurtT) {
 
 /* Hạt bụi lơ lửng (toạ độ màn hình, trôi chậm, lệch nhẹ theo camera tạo chiều sâu) */
 const MOTES = Array.from({ length: 36 }, () => ({ x: Math.random(), y: Math.random(), vx: rand(-1, 1), vy: rand(-1, 1), s: Math.random() < 0.5 ? 1 : 2, a: rand(0.25, 0.5) }));
-function drawMotes(camX, camY) {
-  const col = WAVE_DEFS[waveIdx()].ground.mote, k = W / VW * 0.15;
+function drawMotes(camX, camY, t = G.t, wi = waveIdx()) {
+  const col = WAVE_DEFS[wi].ground.mote, k = W / VW * 0.15;
   ctx.fillStyle = col;
   for (const m of MOTES) {
     const sp = 4 + m.s * 3;
-    let x = (m.x * W + m.vx * sp * G.t - camX * k) % W, y = (m.y * H + m.vy * sp * G.t - camY * k) % H;
+    let x = (m.x * W + m.vx * sp * t - camX * k) % W, y = (m.y * H + m.vy * sp * t - camY * k) % H;
     if (x < 0) x += W; if (y < 0) y += H;
     ctx.globalAlpha = m.a; ctx.fillRect(x, y, m.s, m.s);
   }
@@ -1040,6 +1040,36 @@ function cineOffset(p) {
   const f = e < 0.5 ? ease(e / 0.5) : e < 1 ? 1 : 1 - ease(clamp((e - 1) / 0.4, 0, 1));
   cineOff.x = (c.x - p.x) * 0.7 * f; cineOff.y = (c.y - p.y) * 0.7 * f;
   return cineOff;
+}
+
+/* Cảnh nền menu (V5 Phase 9): camera lia chậm trên nền đợt 1, vài con quái lang thang, bụi lơ lửng.
+   Không có người chơi, không gọi update(), không ghi gì vào G; không phát âm thanh. REDUCED_MOTION → một khung đứng yên.
+   Chỉ được gọi từ frame() khi G.state === 'menu', nên vào ván là dừng hẳn. */
+const attract = { t: 0, mobs: null, list: [] };
+const ATTRACT_TYPES = ['bat', 'slime', 'skeleton', 'ghost', 'golem', 'bat', 'skeleton', 'slime'];
+function renderAttract(dt) {
+  const A = CFG.attract;
+  if (!REDUCED_MOTION) attract.t += Math.min(dt, 0.1);
+  const t = attract.t, cx = Math.sin(t * A.drift) * A.range * 0.6, cy = Math.sin(t * A.drift * 0.7 + 1) * A.range * 0.4;
+  if (!attract.mobs) attract.mobs = Array.from({ length: A.enemies }, (_, i) => {
+    const type = ATTRACT_TYPES[i % ATTRACT_TYPES.length];
+    return { type, x: rand(-VW / 2, VW / 2), y: rand(-VH / 2, VH / 2), vx: 0, vy: 0, a: Math.random() * TAU, anim: Math.random() * 10, face: 1, flash: 0, sc: 1, r: ENEMIES[type].r, turn: rand(1, 3) };
+  });
+  for (const m of attract.mobs) {
+    if (REDUCED_MOTION) break;
+    m.turn -= dt; if (m.turn <= 0) { m.turn = rand(1.5, 4); m.a += rand(-1.6, 1.6); }
+    if (Math.abs(m.x - cx) > VW * 0.55 || Math.abs(m.y - cy) > VH * 0.55) m.a = Math.atan2(cy - m.y, cx - m.x); // lạc xa thì quay về giữa
+    const sp = ENEMIES[m.type].speed * 0.35; m.vx = Math.cos(m.a) * sp; m.vy = Math.sin(m.a) * sp;
+    m.x += m.vx * Math.min(dt, 0.1); m.y += m.vy * Math.min(dt, 0.1); m.anim += Math.min(dt, 0.1); m.face = m.vx >= 0 ? 1 : -1;
+  }
+  const camX = snapPx(cx - VW / 2), camY = snapPx(cy - VH / 2);
+  ctx.setTransform(ZOOM, 0, 0, ZOOM, -camX * ZOOM, -camY * ZOOM);
+  tileGround(groundFor(0), camX, camY);
+  const L = attract.list; L.length = 0; for (const m of attract.mobs) L.push(m); L.sort(byY);
+  for (const m of L) { if (Assets.get(m.type)) drawShadow(m); draw(ctx, m, m.type); }
+  ctx.setTransform(SCREEN, 0, 0, SCREEN, 0, 0);
+  drawVignette(0, 0);
+  drawMotes(camX, camY, t, 0);
 }
 
 function renderScene() {

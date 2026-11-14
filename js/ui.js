@@ -100,7 +100,7 @@ function bestPassed() {
 }
 function checkToasts(now) {
   if (G.state !== 'play' || !G.player) return;
-  if (now >= toastCheckT) { toastCheckT = now + 250; for (const T of TOASTS) if (!toastDone.has(T.id) && T.test()) { toastDone.add(T.id); toastQ.push(T); } }
+  if (now >= toastCheckT) { toastCheckT = now + 250; for (const T of TOASTS) if (!toastDone.has(T.id) && T.test()) { toastDone.add(T.id); toastQ.push(T); } checkMissions(); }
   if (toastQ.length && now >= toastNext && G.t - G.calloutT >= 0.5 && !cere.on) { showToast(toastQ.shift()); toastNext = now + CFG.toast.gap * 1000; }
 }
 function showToast(T) {
@@ -230,6 +230,9 @@ function renderMenu() {
   $('startHint').textContent = 'Vũ khí khởi đầu: ' + WEAPONS[SETUP.start].name;
   $('nmWrap').hidden = !META.won; $('optNm').checked = SETUP.nm;
   $('soulTxt').textContent = META.souls > 0 ? `Linh hồn: ${META.souls}` : '';
+  normMeta(META); fillMissions(false);
+  const ml = $('mList'); renderMissions(ml, false); ml.prepend(mkEl('h3', '', 'Nhiệm vụ'));
+  $('bookBtn').textContent = `Sổ tay ${bookCount()}/${bookTotal()}`;
   updateBestTxt();
 }
 function renderMeta() {
@@ -273,7 +276,7 @@ function openMeta(on) { if (on) renderMeta(); show('meta', on); (on ? $('metaBac
 $('metaBtn').addEventListener('click', () => openMeta(true));
 $('metaBack').addEventListener('click', () => openMeta(false));
 $('optNm').addEventListener('change', e => { SETUP.nm = e.target.checked; updateBestTxt(); });
-function toMenu() { ['over', 'paused', 'levelup'].forEach(id => show(id, false)); G.state = 'menu'; renderMenu(); show('menu', true); }
+function toMenu() { ['over', 'paused', 'levelup', 'book'].forEach(id => show(id, false)); G.state = 'menu'; renderMenu(); show('menu', true); }
 
 /* ---------- Linh hồn + mở khoá khi kết thúc ván ---------- */
 function runSouls() {
@@ -331,7 +334,7 @@ function rollChoices(exclude = []) {
 function evoCard(id) {
   const E = EVOLUTIONS[id], W = WEAPONS[id];
   return { id, kind: 'evo', name: E.name, icon: W.icon, max: 9, desc: () => E.desc,
-    apply: p => { const w = p.weapons[id]; w.evo = true; G.evolved = true; E.apply(w); } };
+    apply: p => { const w = p.weapons[id]; w.evo = true; G.evolved = true; E.apply(w); bookAdd('evo:' + id); } };
 }
 // Gợi ý cách tiến hoá cho vũ khí đang có
 const evoHint = id => EVOLUTIONS[id] ? `Tiến hoá: cần ${PASSIVES.find(x => x.id === EVOLUTIONS[id].passive).name} cấp ${CFG.evo.passiveLvl}` : '';
@@ -512,6 +515,7 @@ function renderPause() {
     ['Hồi máu', p.regen.toFixed(1) + '/s'], ['Tầm hút ngọc', Math.round(p.magnet)],
   ];
   renderDmgList($('pDmg'));
+  renderMissions($('pMissions'), true);
   $('pStats').replaceChildren(...rows.flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
 }
 function togglePause() {
@@ -522,6 +526,9 @@ function togglePause() {
 function startGame() {
   SFX.init();
   clearTimeout(overTimer); stageTimers.forEach(clearTimeout); stageTimers = []; staging = false; overShownAt = Infinity;
+  normMeta(META);
+  for (const a of META.missions) delete a.fresh;   // nhiệm vụ thay vào ở ván trước bắt đầu tính từ ván này
+  fillMissions(false); saveMeta();
   resetWorld();
   hudLevel = 1; lowOn = false; xpCarrying = false; document.body.classList.remove('lowhp'); comboEl.className = ''; comboShown = -1;
   toastQ.length = 0; toastDone.clear(); toastNext = toastCheckT = 0; $('toasts').replaceChildren(); waveCardFor = -1; runBest = store.get(bestKey(), { time: 0 });
@@ -542,6 +549,7 @@ function endRun(won) {
   const newBest = score(run) > score(prev);
   renderStatBests(run);   // trước khi ghi vs_best (lần đầu kỷ lục từng chỉ số lấy từ vs_best cũ)
   if (newBest) { store.set(key, run); if (!G.nm) G.best = run; }
+  checkMissions();
   const { gain, fresh } = grantMeta(); lastFresh = fresh; showSouls(gain, fresh, true);
   $('overTitle').textContent = won ? 'Bạn đã đánh bại Chúa Tể Bóng Đêm!' : G.endless ? `Gục ngã ở đợt ${wave} (vô tận)` : 'Bạn đã gục ngã';
   $('rWave').textContent = won ? '★' : waveLabel(G.wave.i);
@@ -660,7 +668,7 @@ function finishStaging() {
    - Trước khi bảng hiện + CFG.endPanel.lock giây: bỏ qua (phím đang giữ / vừa bấm lướt không chơi lại nhầm).
    - Đang hiện dần: hiện hết. - Sau đó: R = chơi lại; Enter/Space = bấm nút đang chọn (mặc định "Chơi lại"). */
 function endPanelKey(code) {
-  if (G.state !== 'over' || metaOpen()) return false;
+  if (G.state !== 'over' || metaOpen() || bookOpen()) return false;
   if (!/^(Enter|NumpadEnter|Space|KeyR)$/.test(code)) return false;
   if (performance.now() < overShownAt + CFG.endPanel.lock * 1000) return true;
   if (finishStaging()) return true;
@@ -668,6 +676,113 @@ function endPanelKey(code) {
   if (code !== 'KeyR' && b && b.tagName === 'BUTTON' && b.closest('#over') && !b.hidden) b.click(); else startGame();
   return true;
 }
+
+/* ---------- V5 Phase 9: nhiệm vụ ---------- */
+const misDef = id => MISSIONS.find(m => m.id === id);
+// Luôn đủ CFG.missions.active nhiệm vụ; bốc ngẫu nhiên trong những cái chưa có (không lặp lại ngay cái vừa xong)
+function fillMissions(fresh) {
+  const act = META.missions;
+  while (act.length < CFG.missions.active) {
+    const pool = MISSIONS.filter(m => !act.some(a => a.id === m.id) && m.id !== META.lastMis);
+    if (!pool.length) break;
+    act.push(fresh ? { id: pool[Math.floor(Math.random() * pool.length)].id, fresh: true } : { id: pool[Math.floor(Math.random() * pool.length)].id });
+  }
+}
+function missionRun() {
+  const S = G.stats;
+  return { kby: S.kby, evo: !!G.evolved, noHit: Math.max(S.noHitMax, G.t - S.lastHurt), chests: G.chests || 0, comboMax: S.comboMax,
+    elites: S.elites, items: S.items, bosses: G.bossKills, level: G.level, dashes: S.dashes };
+}
+// Kiểm nhiệm vụ đang làm (bỏ qua nhiệm vụ vừa thay vào trong ván này). Xong → trả linh hồn MỘT lần, lưu ngay, thay bằng nhiệm vụ mới.
+function checkMissions() {
+  if (!G.player || !G.stats.kby) return;
+  const r = missionRun();
+  for (const a of [...META.missions]) {
+    if (a.fresh) continue;
+    const d = misDef(a.id); if (!d || d.prog(r) < d.goal) continue;
+    META.missions.splice(META.missions.indexOf(a), 1); META.lastMis = a.id;
+    META.souls += d.reward; META.misDone = (META.misDone || 0) + 1;
+    fillMissions(true); saveMeta();
+    G.misDone.push(d);
+    toastQ.push({ id: 'mis' + d.id, gold: true, text: `Nhiệm vụ xong: ${d.text} · +${d.reward} linh hồn` });
+  }
+}
+function missionEl(a, r) {
+  const d = misDef(a.id), row = mkEl('div', 'mis' + (a.fresh ? ' fresh' : ''));
+  row.append(mkEl('span', 'mt', d.text));
+  if (r) {
+    const c = Math.min(d.goal, d.prog(r)), b = mkEl('span', 'gbar'), f = mkEl('i'); f.style.width = (c / d.goal * 100).toFixed(0) + '%'; b.append(f);
+    row.append(b, mkEl('b', 'mc', `${c}/${d.goal}`));
+  } else if (a.fresh) row.append(mkEl('em', 'mnew', 'Mới · từ ván sau'));
+  row.append(mkEl('b', 'mr', `+${d.reward}`));
+  return row;
+}
+function renderMissions(box, live) {
+  box.replaceChildren();
+  const r = live && G.player ? missionRun() : null;
+  for (const a of META.missions) if (misDef(a.id)) box.append(missionEl(a, a.fresh ? null : r));
+}
+// Khối mục tiêu ở màn kết thúc: nhiệm vụ vừa xong, nhiệm vụ đang làm (tiến độ ván này), mục sổ tay mới
+function renderMissionGoals(box) {
+  for (const d of G.misDone) { const row = mkEl('div', 'goal done'); row.append(mkEl('span', 'gl', `Nhiệm vụ xong: ${d.text}`), mkEl('b', '', `+${d.reward}`)); box.append(row); }
+  const r = missionRun();
+  for (const a of META.missions) {
+    const d = misDef(a.id); if (!d) continue;
+    if (a.fresh) { const row = mkEl('div', 'goal'); row.append(mkEl('span', 'gl', `Nhiệm vụ mới: ${d.text}`), mkEl('b', '', `+${d.reward}`)); box.append(row); }
+    else box.append(goalRow(`Nhiệm vụ: ${d.text} (+${d.reward})`, Math.min(d.goal, d.prog(r)), d.goal));
+  }
+  if (G.bookNew.length) { const row = mkEl('div', 'goal done'); row.append(mkEl('span', 'gl', `Sổ tay +${G.bookNew.length} mục mới: ${G.bookNew.map(k => bookName(k)).join(', ')}`)); box.append(row); }
+}
+
+/* ---------- V5 Phase 9: sổ tay sưu tầm ---------- */
+const bookTotal = () => BOOK.reduce((n, g) => n + g.keys.length, 0);
+const bookCount = () => BOOK.reduce((n, g) => n + g.keys.filter(k => META.book.includes(k)).length, 0);
+function bookName(k) {
+  if (k.startsWith('w:')) return WEAPONS[k.slice(2)].name;
+  if (k.startsWith('evo:')) return EVOLUTIONS[k.slice(4)].name;
+  if (ITEMS[k]) return ITEMS[k].name;
+  return SRC_NAMES[k] || (ENEMIES[k] && ENEMIES[k].name) || k;
+}
+// Hình quái/boss cho sổ tay: vẽ khung đầu tiên từ atlas lên một canvas nhỏ (không dùng toDataURL nên chạy được cả file://)
+function spriteIcon(kind, size = 40) {
+  const c = document.createElement('canvas'); c.width = c.height = size; c.className = 'spr';
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const a = Assets.get(kind);
+  if (a) {
+    const an = a.meta.anims.idle || a.meta.anims.run || Object.values(a.meta.anims)[0], fr = an.frames[0];
+    const k = Math.max(1, Math.floor(size / Math.max(fr[2], fr[3])));
+    const w = Math.min(size, fr[2] * k), h = Math.min(size, fr[3] * k);
+    g.drawImage(a.img, fr[0], fr[1], fr[2], fr[3], (size - w) / 2, (size - h) / 2, w, h);
+  } else if (SHAPES[kind]) { g.translate(size / 2, size / 2); g.scale(0.8, 0.8); SHAPES[kind](g, { x: 0, y: 0, anim: 0, flash: 0, face: 1, r: 10 }); }
+  return c;
+}
+function bookIcon(k) {
+  if (k.startsWith('w:')) return iconEl(k.slice(2), WEAPONS[k.slice(2)].icon);
+  if (k.startsWith('evo:')) return iconEl(k.slice(4), WEAPONS[k.slice(4)].icon);
+  if (ITEMS[k]) return iconEl('i_' + k, ITEMS[k].name[0]);
+  return spriteIcon(k);
+}
+function renderBook() {
+  const grid = $('bookGrid'); grid.replaceChildren();
+  $('bookCount').textContent = `Đã ghi ${bookCount()}/${bookTotal()} mục. Mục mới được ghi lần đầu bạn có hoặc hạ được nó.`;
+  for (const grp of BOOK) {
+    const have = grp.keys.filter(k => META.book.includes(k)).length;
+    grid.append(mkEl('h3', '', `${grp.title} ${have}/${grp.keys.length}`));
+    const row = mkEl('div', 'bkrow');
+    for (const k of grp.keys) {
+      const on = META.book.includes(k), cell = mkEl('div', 'bk' + (on ? '' : ' off') + (k.startsWith('evo:') ? ' evo' : ''));
+      cell.append(bookIcon(k), mkEl('span', 'bn', on ? bookName(k) : '???'));
+      if (on && k.startsWith('evo:')) { const id = k.slice(4), P = PASSIVES.find(x => x.id === EVOLUTIONS[id].passive); cell.append(mkEl('small', '', `${WEAPONS[id].name} 8 + ${P.name} ${CFG.evo.passiveLvl}`)); }
+      cell.title = on ? bookName(k) : 'Chưa khám phá';
+      row.append(cell);
+    }
+    grid.append(row);
+  }
+}
+const bookOpen = () => $('book').classList.contains('show');
+function openBook(on) { if (on) renderBook(); show('book', on); if (on) $('book').querySelector('.panel').scrollTop = 0; (on ? $('bookBack') : $('bookBtn')).focus({ preventScroll: true }); }
+$('bookBtn').addEventListener('click', () => openBook(true));
+$('bookBack').addEventListener('click', () => openBook(false));
 
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
@@ -752,7 +867,8 @@ function frame(now) {
   checkToasts(now);
   SFX.sync(); // nhạc nền theo trạng thái game (đổi bản khi có boss, nhỏ lại khi tạm dừng)
   // Nội suy giữa 2 bước logic: màn 75/120/144Hz không còn khung "đứng hình" xen khung "nhảy cóc"
-  render(G.state === 'play' ? acc / CFG.step : 1);
+  if (G.state === 'menu') renderAttract(dt);   // menu: cảnh nền sống động (không có người chơi, không gọi update)
+  else render(G.state === 'play' ? acc / CFG.step : 1);
   updateHud();
   const work = performance.now() - w0; if (work > workMax) workMax = work;
   fpsN++; fpsT += dt;
@@ -783,4 +899,6 @@ window.__vs = {
 
 renderMenu();
 resetWorld();
+// Tiêu đề menu chỉ "rơi vào chỗ" một lần mỗi lần mở trang
+document.querySelector('#menu h1').addEventListener('animationend', e => e.currentTarget.classList.remove('intro'), { once: true });
 Assets.load().then(() => { buildIcons(); updateMuteBtn(); renderOwned(); renderMenu(); requestAnimationFrame(t => { last = t; frame(t); }); });

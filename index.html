@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0a12">
 <title>Đêm Sinh Tồn</title>
-<link rel="stylesheet" href="css/game.css?v=v5h">
+<link rel="stylesheet" href="css/game.css?v=v5i">
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -43,7 +43,7 @@
 
 <div class="overlay show" id="menu">
   <div class="panel">
-    <h1>ĐÊM SINH TỒN</h1>
+    <h1 class="intro">ĐÊM SINH TỒN</h1>
     <p class="sub">Vượt qua 4 đợt quái đêm, mỗi đợt kết thúc bằng một boss có kỹ năng riêng.<br>
       Vũ khí tự tấn công · nhặt ngọc để lên cấp · phá thùng gỗ để lấy vật phẩm.</p>
     <p class="sub kbd-hint">Di chuyển: <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> · <kbd>Space</kbd> lướt né · <kbd>Esc</kbd> tạm dừng · <kbd>M</kbd> tắt tiếng<br>
@@ -52,8 +52,9 @@
     <div class="startpick" id="startPick" role="radiogroup" aria-label="Vũ khí khởi đầu"></div>
     <p class="sub hint" id="startHint" aria-live="polite"></p>
     <label class="nmtoggle" id="nmWrap" hidden><input type="checkbox" id="optNm"> <span>Ác mộng</span> <small>quái máu ×1.5 · sát thương ×1.3 · linh hồn ×1.5</small></label>
-    <div class="menubtns"><button class="btn" id="startBtn">Bắt đầu</button><button class="btn ghost" id="metaBtn">Nâng cấp vĩnh viễn</button></div>
+    <div class="menubtns"><button class="btn" id="startBtn">Bắt đầu</button><button class="btn ghost" id="metaBtn">Nâng cấp vĩnh viễn</button><button class="btn ghost" id="bookBtn">Sổ tay</button></div>
     <p class="sub souls" id="soulTxt"></p>
+    <div class="missions" id="mList" aria-label="Nhiệm vụ"></div>
     <p class="sub" id="bestTxt" style="margin-bottom:0"></p>
   </div>
 </div>
@@ -77,6 +78,15 @@
   </div>
 </div>
 
+<div class="overlay" id="book">
+  <div class="panel wide">
+    <h2>Sổ tay</h2>
+    <p class="sub" id="bookCount"></p>
+    <div id="bookGrid" class="bookgrid"></div>
+    <div class="menubtns"><button class="btn ghost" id="bookBack">Quay lại</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="levelup">
   <div class="panel">
     <h2 id="luTitle">Lên cấp!</h2>
@@ -93,6 +103,7 @@
     <div class="pausegrid">
       <section><h3>Trang bị</h3><div id="pEquip" class="equip"></div></section>
       <section><h3>Chỉ số</h3><dl id="pStats" class="statlist"></dl></section>
+      <section class="wide"><h3>Nhiệm vụ</h3><div id="pMissions" class="missions"></div></section>
       <section class="wide"><div id="pDmg" class="dmglist"></div></section>
       <section><h3>Cài đặt</h3>
         <label class="opt vol">Nhạc <input type="range" id="optMusic" min="0" max="100" step="5"> <output id="optMusicV"></output></label>
@@ -125,15 +136,15 @@
   </div>
 </div>
 
-<script src="js/util.js?v=v5h"></script>
-<script src="js/atlas.js?v=v5h"></script>
-<script src="js/fx-atlas.js?v=v5h"></script>
-<script src="js/data.js?v=v5h"></script>
-<script src="js/audio.js?v=v5h"></script>
-<script src="js/render.js?v=v5h"></script>
-<script src="js/game.js?v=v5h"></script>
-<script src="js/input.js?v=v5h"></script>
-<script src="js/icons.js?v=v5h"></script>
-<script src="js/ui.js?v=v5h"></script>
+<script src="js/util.js?v=v5i"></script>
+<script src="js/atlas.js?v=v5i"></script>
+<script src="js/fx-atlas.js?v=v5i"></script>
+<script src="js/data.js?v=v5i"></script>
+<script src="js/audio.js?v=v5i"></script>
+<script src="js/render.js?v=v5i"></script>
+<script src="js/game.js?v=v5i"></script>
+<script src="js/input.js?v=v5i"></script>
+<script src="js/icons.js?v=v5i"></script>
+<script src="js/ui.js?v=v5i"></script>
 </body>
 </html>

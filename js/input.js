@@ -34,13 +34,14 @@ addEventListener('keydown', e => {
   if (cere.on) { e.preventDefault(); endCere(); return; } // mở rương: phím bất kỳ để bỏ qua
   if (endPanelKey(code)) { e.preventDefault(); return; }   // màn kết thúc: khoá phím lúc đầu, hiện hết, chơi lại (R / Enter / Space)
   if (code === 'Escape' && metaOpen()) openMeta(false);
+  else if (code === 'Escape' && bookOpen()) openBook(false);
   else if (code === 'Escape' || code === 'KeyP') togglePause();
   else if (code === 'KeyM') SFX.toggle();
   else if (code === 'KeyF') { const el = document.getElementById('fps'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
   else if (G.state === 'levelup' && /^(Digit|Numpad)[123]$/.test(code)) { const u = G.choices[+code.slice(-1) - 1]; if (u) choose(u); }
   else if ((code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') && G.state === 'play') tryDash();
   else if (G.state === 'levelup' && code === 'KeyR') reroll();
-  else if (G.state === 'menu' && !metaOpen() && (code === 'Enter' || code === 'Space' || code === 'NumpadEnter')) startGame();
+  else if (G.state === 'menu' && !metaOpen() && !bookOpen() && (code === 'Enter' || code === 'Space' || code === 'NumpadEnter')) startGame();
 });
 addEventListener('keyup', e => held.delete(keyCode(e)));
 // Mất focus thì trình duyệt không gửi keyup: phải xả phím để không bị "kẹt" chạy một hướng.

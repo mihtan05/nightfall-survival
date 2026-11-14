@@ -10,6 +10,8 @@ window.runChecks = async function () {
   const kd = (code, key = 'x') => dispatchEvent(new KeyboardEvent('keydown', { code, key }));
   const ku = (code, key = 'x') => dispatchEvent(new KeyboardEvent('keyup', { code, key }));
   const wait = ms => new Promise(r => setTimeout(r, ms));
+  // Giữ nguyên tiến trình thật của người chơi: sao lưu META + localStorage, trả lại ở cuối
+  const metaAll = JSON.stringify(META), lsKeys = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_stat', 'vs_stat_nm', 'vs_start'], lsAll = lsKeys.map(k => [k, localStorage.getItem(k)]);
   const fresh = () => { ['over', 'levelup', 'paused', 'menu'].forEach(id => document.getElementById(id).classList.remove('show')); startGame(); G.enemies.clear(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9; };
 
   // ---- Giai đoạn 0: input ----
@@ -272,6 +274,37 @@ window.runChecks = async function () {
   Object.assign(META, JSON.parse(bak8));
   for (const [k, val] of ls8) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);
   fresh(); renderMenu();
+  // ---------- V5 Phase 9: nhiệm vụ, sổ tay, menu sống động, bảng thống nhất ----------
+  fresh(); META.missions = [{ id: 'chest3' }, { id: 'items6' }, { id: 'lvl20' }]; delete META.lastMis; const souls9 = META.souls;
+  G.chests = 3; checkMissions(); const paid9 = META.souls - souls9, saved9 = store.get('vs_meta', {});
+  const replaced9 = META.missions.length === 3 && !META.missions.some(a => a.id === 'chest3') && META.missions.some(a => a.fresh);
+  checkMissions(); const once9 = META.souls - souls9 === paid9;
+  const old9 = normMeta({ souls: 50, up: { hp: 1 }, unlocked: ['bolt', 'knife'], runs: 3, won: false });
+  ok('V5-9', '9.1 Nhiệm vụ xong trả linh hồn một lần, lưu ngay, có nhiệm vụ thay; bản lưu cũ vẫn nạp', paid9 === 20 && once9 && replaced9 && saved9.souls === META.souls && (saved9.missions || []).length === 3
+    && Array.isArray(old9.book) && old9.missions.length === 0 && old9.souls === 50 && old9.up.hp === 1, `+${paid9}, thay ${replaced9}, lưu ${saved9.souls === META.souls}`);
+  META.book = META.book.filter(k => k !== 'golem'); fresh(); const n9 = bookCount();
+  const g9 = spawnEnemy('golem', P().x + 50, P().y); hitEnemy(g9, 1e9, 1, 0); renderMenu();
+  const btn9 = document.getElementById('bookBtn').textContent;
+  ok('V5-9', '9.2 Hạ loại quái mới → ghi vào sổ tay, số trên nút menu khớp', META.book.includes('golem') && bookCount() === n9 + 1 && btn9 === `Sổ tay ${bookCount()}/${bookTotal()}` && G.bookNew.includes('golem'), btn9);
+  { let nA = 0; const ra = window.renderAttract; window.renderAttract = d => { nA++; ra(d); };
+    G.state = 'menu'; const gt = G.t, at = attract.t, base = performance.now(); last = base; for (let i = 1; i <= 5; i++) frame(base + i * 50);
+    const menuOk = nA === 5 && G.t === gt && (REDUCED_MOTION || attract.t > at);
+    fresh(); nA = 0; { const b2 = performance.now(); last = b2; frame(b2 + 16); } window.renderAttract = ra;
+    ok('V5-9', '9.3 Menu: cảnh nền chạy mà không gọi update; vào ván thì dừng hẳn', menuOk && nA === 0, `menu ${menuOk}, khi chơi ${nA} lần`); }
+  const small = [];
+  fresh(); G.pending = 1; openLevelUp();
+  for (const id of ['menu', 'meta', 'book', 'paused', 'over', 'levelup']) {
+    if (id === 'meta') renderMeta(); if (id === 'book') renderBook(); if (id === 'paused') renderPause();
+    const el9 = document.getElementById(id), was = el9.classList.contains('show'); el9.classList.add('show');
+    for (const b of el9.querySelectorAll('button')) if (b.offsetParent && (b.offsetHeight < 44 || b.offsetWidth < 44)) small.push(`${id}#${b.id || b.className}:${b.offsetWidth}×${b.offsetHeight}`);
+    if (!was) el9.classList.remove('show');
+  }
+  while (G.state === 'levelup') v.choose(G.choices[0]); show('levelup', false);
+  ok('V5-9', '9.4 Mọi nút trong menu, nâng cấp, sổ tay, tạm dừng, kết thúc, lên cấp ≥ 44 px', !small.length, small.join(', ') || 'ok');
+  for (const k of Object.keys(META)) delete META[k];
+  Object.assign(META, JSON.parse(metaAll));
+  for (const [k, val] of lsAll) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);
+  renderMenu();
   G.state = 'over';
   return out;
 };

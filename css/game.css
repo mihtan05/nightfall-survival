@@ -270,6 +270,39 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;font:14px system-ui,sans-serif;min-height:44px;padding:0 10px;cursor:pointer}
 .linkbtn[data-arm="1"]{color:#ff8da0}
 .result{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0 20px}
+/* ---------- V5 Phase 9: menu sống động, nhiệm vụ, sổ tay, ngôn ngữ chung cho các bảng ---------- */
+#menu{background:radial-gradient(ellipse at center,#05040a66 30%,#05040acc 100%)}   /* thấy cảnh nền lia chậm phía sau */
+#menu .panel{background:#16131fe6}
+#menu h1.intro{animation:titleIn 1.3s cubic-bezier(.2,.8,.2,1) both}
+@keyframes titleIn{0%{opacity:0;letter-spacing:16px;transform:translateY(-10px)}55%{opacity:1}100%{letter-spacing:3px;transform:none}}
+/* mọi bảng: cùng khung, cùng hiệu ứng mở */
+.overlay.show>.panel{animation:panelIn .2s ease-out}
+@keyframes panelIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.btn:focus-visible,.linkbtn:focus-visible,.pick:focus-visible,.card:focus-visible,.icon:focus-visible,.opt input:focus-visible,.nmtoggle input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.opt{min-height:44px;margin-bottom:4px}
+.missions{text-align:left;margin:4px auto 10px;max-width:520px}
+#mList h3{margin:6px 0}
+.mis{display:flex;align-items:center;gap:8px;margin:4px 0;padding:6px 10px;background:#0006;border:1px solid var(--line);border-radius:8px;font-size:14px}
+.mis .mt{flex:1 1 auto;min-width:0}
+.mis .gbar{flex:0 0 26%;height:8px;background:#000;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.mis .gbar i{display:block;height:100%;background:linear-gradient(90deg,#2a8a5a,#5cff9d)}
+.mis .mc{font:16px/1 var(--px);color:var(--text);white-space:nowrap}
+.mis .mr{font:18px/1 var(--px);color:var(--gold);white-space:nowrap}
+.mis .mnew{font-size:12px;font-style:normal;color:#9fd8ff}
+.mis.fresh{border-style:dashed}
+.bookgrid{text-align:left;margin:6px 0 12px}
+.bookgrid h3{margin:12px 0 6px}
+.bkrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.bk{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;background:var(--card);border:1px solid var(--line);border-radius:10px;text-align:center}
+.bk img,.bk canvas{position:static;width:40px;height:40px;image-rendering:pixelated}   /* canvas trong DOM: bỏ quy tắc toàn màn hình của canvas game */
+.pausegrid .missions{max-width:none;margin:0}
+.bk .bn{font:18px/1.05 var(--px);color:var(--text)}
+.bk small{font-size:11px;color:#d9b45a;line-height:1.2}
+.bk.evo{border-color:#6d5a2a}
+.bk.off{background:#0b0a12;border-style:dashed}
+.bk.off img,.bk.off canvas{filter:brightness(0);opacity:.6}
+.bk.off .bn{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){#menu h1.intro,.overlay.show>.panel{animation:none}}
 /* ---------- V5 Phase 8: màn kết thúc ---------- */
 .panel.endp{max-width:640px;display:flex;flex-direction:column}
 .endp .stg{opacity:0;transform:translateY(10px);transition:opacity .25s ease-out,transform .25s ease-out}

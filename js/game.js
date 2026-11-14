@@ -4,7 +4,7 @@
    ========================================================= */
 const G = {
   state: 'menu', t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
-  boss: null, won: false, chestOpen: false, typeCount: {}, stepId: 0, stats: { dmg: {}, taken: {}, since: {} }, cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1,
+  boss: null, won: false, chestOpen: false, typeCount: {}, stepId: 0, stats: newStats({}), cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1,
   hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0, zapFlashA: 0, freezeT: 0, combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0,
   wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   player: null,
@@ -20,8 +20,26 @@ const G = {
   best: store.get('vs_best', { time: 0, kills: 0, level: 1 }), nm: false, endless: false, bossKills: 0,
   choices: [],
 };
-// Tiến trình lâu dài (linh hồn, nâng cấp vĩnh viễn, vũ khí đã mở, đã thắng chưa)
+// Tiến trình lâu dài (linh hồn, nâng cấp vĩnh viễn, vũ khí đã mở, đã thắng chưa, nhiệm vụ, sổ tay)
 const META = Object.assign({ souls: 0, up: {}, unlocked: ['bolt'], runs: 0, won: false }, store.get('vs_meta', {}));
+// Bản lưu cũ (trước V5 Phase 9) thiếu missions / book: mặc định rỗng, không làm hỏng gì
+function normMeta(m) {
+  if (!m.up || typeof m.up !== 'object') m.up = {};
+  if (!Array.isArray(m.unlocked)) m.unlocked = ['bolt'];
+  if (!Array.isArray(m.book)) m.book = [];
+  if (!Array.isArray(m.missions)) m.missions = [];
+  m.missions = m.missions.filter(x => x && MISSIONS.some(d => d.id === x.id));
+  return m;
+}
+normMeta(META);
+// Thống kê của một ván (bảng sát thương, nhiệm vụ, màn kết thúc)
+function newStats(since) { return { dmg: {}, taken: {}, since, kby: {}, lastHurt: 0, noHitMax: 0, comboMax: 0, elites: 0, items: 0, dashes: 0 }; }
+// Sổ tay: ghi mục lần đầu gặp/có (chỉ đổi dữ liệu; lưu cùng vs_meta khi kết thúc ván). Tra bằng G.bookSeen (object) để rẻ trong lúc hạ quái.
+function bookAdd(key) {
+  if (!G.bookSeen || G.bookSeen[key]) return;
+  G.bookSeen[key] = true;
+  if (!META.book.includes(key)) { META.book.push(key); G.bookNew.push(key); }
+}
 const saveMeta = () => store.set('vs_meta', META);
 const metaLv = id => META.up[id] || 0;
 const SETUP = { start: store.get('vs_start', 'bolt'), nm: false };   // lựa chọn ở menu cho ván tiếp theo
@@ -70,10 +88,11 @@ function resetWorld() {
     combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, chests: 0,
     freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0,
     cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1, rerolls: CFG.rerolls + metaRoll(metaLv('roll')).rerolls,
-    stats: { dmg: {}, taken: {}, since: { [SETUP.start]: 0 } },
+    stats: newStats({ [SETUP.start]: 0 }), bookNew: [], bookSeen: Object.fromEntries(META.book.map(k => [k, true])), misDone: [],
     nm: SETUP.nm, endless: false, bossKills: 0, evolved: false, soulsGiven: 0, endDef: null, novaFreeAt: 0, healT0: -9, healAmt: 0,
     wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   });
+  bookAdd('w:' + SETUP.start);
   for (let i = 0; i < 3; i++) spawnCrate(rand(110, 240)); // vài thùng gỗ ngay đầu trận
   renderOwned();
 }
@@ -368,6 +387,7 @@ function rollItem() {
 }
 function pickItem(kind) {
   const p = G.player, it = ITEMS[kind];
+  G.stats.items++; bookAdd(kind);
   addText(p.x, p.y - 30, it.name, it.color);
   burst(p.x, p.y, it.color, 12, 140, 3, 0.5);
   if (kind === 'potion') { p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.3)); playFx('heartUp', p.x, p.y, 0, p, 4); SFX.play('heal'); }
@@ -425,7 +445,8 @@ function hurtPlayer(dmg, src = '?') {
     return;
   }
   const lost = Math.min(p.hp, Math.max(1, dmg - p.armor));
-  p.hp -= lost; G.stats.taken[src] = (G.stats.taken[src] || 0) + lost; G.stats.last = src; // nguồn đòn cuối: màn kết thúc ghi "gục vì …"
+  p.hp -= lost; G.stats.taken[src] = (G.stats.taken[src] || 0) + lost; G.stats.last = src;
+  const S = G.stats; S.noHitMax = Math.max(S.noHitMax, G.t - S.lastHurt); S.lastHurt = G.t; // chuỗi không trúng đòn (nhiệm vụ) // nguồn đòn cuối: màn kết thúc ghi "gục vì …"
   p.iframe = CFG.player.iframe; p.hurtT = 0.3; addShake(6);
   hitStop(CFG.hurt.stop); G.flashT = 0.12; G.flashColor = '#ff3b5c';
   pushAround(p.x, p.y, CFG.hurt.pushR, CFG.hurt.push, '#ffffff');
@@ -441,6 +462,7 @@ function tryDash() {
   if (!dx && !dy) { dx = p.dirX; dy = p.dirY; }
   const l = Math.hypot(dx, dy) || 1;
   p.dashX = dx / l; p.dashY = dy / l; if (dx) p.face = dx > 0 ? 1 : -1;
+  G.stats.dashes++;
   p.dashT = D.dur; p.dashCd = D.cd; p.iframe = Math.max(p.iframe, D.iframe); p.trail.length = 0; p.trailN = 0;
   burst(p.x, p.y + 8, '#7fd4ff', 8, 100, 2.5, 0.3); SFX.play('dash');
   return true;
@@ -677,7 +699,7 @@ function hitEnemy(e, dmg, kx, ky, kb = 1, fx = null, src = '?', fxk = 1) {
   const l = Math.hypot(kx, ky) || 1; e.kx += kx / l * 90 * kb / e.mass; e.ky += ky / l * 90 * kb / e.mass;
   if (fx) playFx(fx, e.x + rand(-3, 3), e.y - e.r * 0.2, fx === 'arrowHit' ? Math.atan2(ky, kx) : 0, null, 0, fxk);
   addDmgText(e, dmg);
-  if (e.hp <= 0) killEnemy(e);
+  if (e.hp <= 0) { G.stats.kby[src] = (G.stats.kby[src] || 0) + 1; killEnemy(e); }
   else { SFX.play('hit'); if (G.parts.items.length < CFG.partCap * 0.6) burst(e.x, e.y, ENEMIES[e.type].color, 2, 90, 2, 0.25); }
 }
 
@@ -690,6 +712,8 @@ function killEnemy(e) {
   }
   G.kills++;
   addCombo();
+  if (!G.bookSeen[e.type]) bookAdd(e.type);
+  if (e.elite) G.stats.elites++;
   // Xác quái co lại + mờ dần (vẽ trong drawFx), logic thì bỏ quái ngay
   const df = addFx('die', e.x, e.y, e.boss ? 0.6 : 0.22);
   df.kind = e.type; df.face = e.face; df.anim = e.anim; df.r = e.r;
@@ -734,6 +758,7 @@ function killEnemy(e) {
    Ở mỗi mốc: kéo mọi ngọc trong CFG.combo.pull đơn vị về người chơi (luôn), chữ lớn "x50!" + vòng màu (giới hạn CFG.callGap). */
 function addCombo() {
   const C = CFG.combo; G.combo++; G.comboT = C.window;
+  if (G.combo > G.stats.comboMax) G.stats.comboMax = G.combo;
   const step = C.steps[G.comboStep];
   if (step === undefined || G.combo < step) return;
   G.comboStep++;

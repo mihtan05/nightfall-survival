@@ -1,6 +1,6 @@
 """Ghép atlas cho game từ gói 0x72 DungeonTileset II (CC0).
 
-Chạy:  python -I tools/build_atlas.py vendor/0x72/atlas.png vendor/0x72/tile_list_v1.7
+Chạy:  python -I tools/build_atlas.py vendor/0x72/x/0x72_DungeonTilesetII_v1.7/0x72_DungeonTilesetII_v1.7.png vendor/0x72/x/0x72_DungeonTilesetII_v1.7/tile_list_v1.7
 
 - Chỉ lấy các khung game dùng (danh sách NEEDED bên dưới).
 - Mỗi khung đặt trong ô có 2px đệm trong suốt để không "lem" sang khung bên cạnh.
@@ -38,6 +38,12 @@ NEEDED = [
     ('flask_big_red', 0, LIGHT), ('flask_big_blue', 0, LIGHT), ('flask_big_green', 0, LIGHT), ('flask_big_yellow', 0, LIGHT),
     ('weapon_arrow', 0, None), ('weapon_red_magic_staff', 0, None), ('weapon_big_hammer', 0, None),
     ('weapon_golden_sword', 0, None), ('flask_green', 0, None), ('flask_blue', 0, None), ('flask_yellow', 0, None),
+    # V5 Phase 10: sprite riêng cho quái biến thể (quỷ nổ = chort, nhớt mẹ = muddy, kỵ sĩ = masked_orc) + 3 nhân vật (skin)
+    ('chort_idle_anim_f', 4, LIGHT), ('chort_run_anim_f', 4, LIGHT), ('muddy_anim_f', 4, LIGHT),
+    ('masked_orc_idle_anim_f', 4, LIGHT), ('masked_orc_run_anim_f', 4, LIGHT),
+    ('knight_m_idle_anim_f', 4, GOLD), ('knight_m_run_anim_f', 4, GOLD), ('knight_m_hit_anim_f', 1, GOLD),
+    ('elf_f_idle_anim_f', 4, GOLD), ('elf_f_run_anim_f', 4, GOLD), ('elf_f_hit_anim_f', 1, GOLD),
+    ('lizard_m_idle_anim_f', 4, GOLD), ('lizard_m_run_anim_f', 4, GOLD), ('lizard_m_hit_anim_f', 1, GOLD),
 ]
 
 

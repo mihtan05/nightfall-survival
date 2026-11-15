@@ -108,6 +108,7 @@ function showToast(T) {
   if (T.icon) d.append(iconEl(T.icon, WEAPONS[T.icon] ? WEAPONS[T.icon].icon : ''));
   d.append(mkEl('span', '', typeof T.text === 'function' ? T.text() : T.text));
   box.append(d); while (box.children.length > CFG.toast.max) box.firstChild.remove();
+  SFX.play(String(T.id).startsWith('mis') ? 'mission' : 'milestone');
   setTimeout(() => d.remove(), CFG.toast.life * 1000);
 }
 // Nghỉ giữa đợt: thẻ tên đợt sắp tới (trong lúc nền đợt mới hiện dần)
@@ -228,6 +229,23 @@ function renderMenu() {
     box.append(b);
   }
   $('startHint').textContent = 'Vũ khí khởi đầu: ' + WEAPONS[SETUP.start].name;
+  // Nhân vật (V5 Phase 10): chỉ đổi hình
+  const sb = $('skinPick'); sb.replaceChildren();
+  for (const [id, S] of Object.entries(SKINS)) {
+    const open = META.skins.includes(id), b = document.createElement('button');
+    b.className = 'pick skin' + (open ? '' : ' locked'); b.type = 'button';
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(SETUP.skin === id));
+    b.setAttribute('aria-label', S.name + (open ? '' : ' (khoá: ' + S.unlock.text + ')'));
+    b.title = open ? S.name : 'Khoá: ' + S.unlock.text;
+    b.append(spriteIcon(S.sprite, 40));
+    if (!open) { const k = document.createElement('i'); k.textContent = '🔒'; k.setAttribute('aria-hidden', 'true'); b.append(k); }
+    b.addEventListener('click', () => {
+      if (!open) { $('skinHint').textContent = `${S.name} — khoá: ${S.unlock.text}`; return; }
+      SETUP.skin = id; store.set('vs_skin', id); renderMenu();
+    });
+    sb.append(b);
+  }
+  $('skinHint').textContent = 'Nhân vật: ' + SKINS[SETUP.skin].name + ' (chỉ đổi hình)';
   $('nmWrap').hidden = !META.won; $('optNm').checked = SETUP.nm;
   $('soulTxt').textContent = META.souls > 0 ? `Linh hồn: ${META.souls}` : '';
   normMeta(META); fillMissions(false);
@@ -272,7 +290,7 @@ $('metaReset').addEventListener('click', e => {   // bước xác nhận: bấm 
   r.dataset.arm = '1'; metaArmT = performance.now() + 3000; r.textContent = 'Bấm lần nữa để hoàn lại tất cả';
 });
 const metaOpen = () => $('meta').classList.contains('show');
-function openMeta(on) { if (on) renderMeta(); show('meta', on); (on ? $('metaBack') : $('metaBtn')).focus(); }
+function openMeta(on) { if (!on && $('meta').classList.contains('show')) SFX.play('back'); if (on) renderMeta(); show('meta', on); (on ? $('metaBack') : $('metaBtn')).focus(); }
 $('metaBtn').addEventListener('click', () => openMeta(true));
 $('metaBack').addEventListener('click', () => openMeta(false));
 $('optNm').addEventListener('change', e => { SETUP.nm = e.target.checked; updateBestTxt(); });
@@ -289,6 +307,8 @@ function grantMeta() {
   if (G.won) META.won = true;
   const r = { wave: G.wave.i + 1, kills: G.kills, bosses: G.bossKills, evo: G.evolved }, fresh = [];
   for (const [id, u] of Object.entries(UNLOCKS)) if (u && !META.unlocked.includes(id) && u.ok(r)) { META.unlocked.push(id); fresh.push(id); }
+  G.freshSkins = [];
+  for (const [id, S] of Object.entries(SKINS)) if (S.unlock && !META.skins.includes(id) && S.unlock.ok(r)) { META.skins.push(id); G.freshSkins.push(id); }
   saveMeta();
   return { gain, fresh };
 }
@@ -305,7 +325,8 @@ function showSouls(gain, fresh, finish = false) {
     if (k < 1) requestAnimationFrame(step);
   };
   el.textContent = '+0 linh hồn'; requestAnimationFrame(step); if (!dur) step(t0);
-  $('rUnlock').textContent = fresh.length ? `Mở khoá: bắt đầu với ${fresh.map(id => WEAPONS[id].name).join(', ')}` : '';
+  const fs = G.freshSkins || [];
+  $('rUnlock').textContent = [fresh.length ? `Mở khoá: bắt đầu với ${fresh.map(id => WEAPONS[id].name).join(', ')}` : '', fs.length ? `Nhân vật mới: ${fs.map(id => SKINS[id].name).join(', ')}` : ''].filter(Boolean).join(' · ');
 }
 
 /* ---------- Lên cấp ---------- */
@@ -449,6 +470,8 @@ function upgradeCue(u) {
   if (u.kind !== 'weapon' && u.kind !== 'evo') return;
   const p = G.player, w = p.weapons[u.id], L = WEAPON_LOOK[u.id]; if (!w || !L) return;
   w.timer = 0;
+  // âm riêng: tiến hoá / lên bậc (cấp 4, 8 — cũng là cột mốc)
+  if (u.kind === 'evo') SFX.play('evolve'); else if ((w.lv || 1) === CFG.tiers.t2 || (w.lv || 1) === CFG.tiers.t3) SFX.play('tierUp');
   const f = addFx('ring', p.x, p.y, CFG.upgradeCue.ringLife); f.maxR = CFG.upgradeCue.ring; f.color = weaponLook(w).col;
   const el = document.createElement('div'); el.className = 'upfloat'; el.style.setProperty('--c', weaponLook(w).col);
   el.append(iconEl(u.id, WEAPONS[u.id].icon)); document.getElementById('hud').append(el);
@@ -520,8 +543,16 @@ function renderPause() {
 }
 function togglePause() {
   if (G.state === 'play') { G.state = 'paused'; endJoy(); renderPause(); show('paused', true); }
-  else if (G.state === 'paused') { G.state = 'play'; show('paused', false); }
+  else if (G.state === 'paused') { G.state = 'play'; show('paused', false); SFX.play('back'); }
 }
+// Âm rê chuột lên nút / thẻ (V5 Phase 6): chỉ khi con trỏ đi vào nút mới, không lặp khi rê trong cùng một nút
+let hoverEl = null;
+document.addEventListener('pointerover', ev => {
+  if (ev.pointerType !== 'mouse') return;
+  const b = ev.target.closest && ev.target.closest('button:not([disabled])');
+  if (b === hoverEl) return; hoverEl = b;
+  if (b && b.id !== 'dashBtn' && !b.classList.contains('icon')) SFX.play('hover');
+});
 
 function startGame() {
   SFX.init();
@@ -530,6 +561,7 @@ function startGame() {
   for (const a of META.missions) delete a.fresh;   // nhiệm vụ thay vào ở ván trước bắt đầu tính từ ván này
   fillMissions(false); saveMeta();
   resetWorld();
+  applySkin(SETUP.skin); bookAdd('skin:' + SETUP.skin);
   hudLevel = 1; lowOn = false; xpCarrying = false; document.body.classList.remove('lowhp'); comboEl.className = ''; comboShown = -1;
   toastQ.length = 0; toastDone.clear(); toastNext = toastCheckT = 0; $('toasts').replaceChildren(); waveCardFor = -1; runBest = store.get(bestKey(), { time: 0 });
   if (cere.on) { cere.on = false; show('chestCere', false); }
@@ -618,12 +650,18 @@ function renderGoals(fresh) {
   const box = $('rGoals'); box.replaceChildren(); box.append(mkEl('h3', '', 'Sắp đạt được'));
   const r = { wave: G.wave.i + 1, kills: G.kills, bosses: G.bossKills, evo: G.evolved };
   for (const id of fresh) { const d = mkEl('div', 'goal done'); d.append(iconEl(id, WEAPONS[id].icon), mkEl('span', 'gl', `Vừa mở: bắt đầu với ${WEAPONS[id].name}`), mkEl('b', '', '✓')); box.append(d); }
+  for (const id of G.freshSkins || []) { const d = mkEl('div', 'goal done'); d.append(spriteIcon(SKINS[id].sprite, 32), mkEl('span', 'gl', `Vừa mở nhân vật: ${SKINS[id].name}`), mkEl('b', '', '✓')); box.append(d); }
+  // mục tiêu mở khoá gần nhất (vũ khí hoặc nhân vật)
   let best = null;
   for (const [id, u] of Object.entries(UNLOCKS)) {
     if (!u || META.unlocked.includes(id)) continue;
-    const [c, m] = u.prog(r); if (!best || c / m > best.c / best.m) best = { id, u, c, m };
+    const [c, m] = u.prog(r); if (!best || c / m > best.c / best.m) best = { id, u, c, m, name: WEAPONS[id].name, ic: () => iconEl(id, WEAPONS[id].icon) };
   }
-  if (best) { const row = goalRow(`${WEAPONS[best.id].name} — ${best.u.text}`, best.c, best.m); row.prepend(iconEl(best.id, WEAPONS[best.id].icon)); box.append(row); }
+  for (const [id, S] of Object.entries(SKINS)) {
+    if (!S.unlock || META.skins.includes(id)) continue;
+    const [c, m] = S.unlock.prog(r); if (!best || c / m > best.c / best.m) best = { id, u: S.unlock, c, m, name: 'Nhân vật ' + S.name, ic: () => spriteIcon(S.sprite, 32) };
+  }
+  if (best) { const row = goalRow(`${best.name} — ${best.u.text}`, best.c, best.m); row.prepend(best.ic()); box.append(row); }
   let cheap = null;
   for (const m of META_UPGRADES) { const lv = metaLv(m.id), cost = CFG.metaCost[lv]; if (cost !== undefined && (!cheap || cost < cheap.cost)) cheap = { m, lv, cost }; }
   if (cheap) {
@@ -741,6 +779,7 @@ const bookCount = () => BOOK.reduce((n, g) => n + g.keys.filter(k => META.book.i
 function bookName(k) {
   if (k.startsWith('w:')) return WEAPONS[k.slice(2)].name;
   if (k.startsWith('evo:')) return EVOLUTIONS[k.slice(4)].name;
+  if (k.startsWith('skin:')) return SKINS[k.slice(5)].name;
   if (ITEMS[k]) return ITEMS[k].name;
   return SRC_NAMES[k] || (ENEMIES[k] && ENEMIES[k].name) || k;
 }
@@ -761,6 +800,7 @@ function bookIcon(k) {
   if (k.startsWith('w:')) return iconEl(k.slice(2), WEAPONS[k.slice(2)].icon);
   if (k.startsWith('evo:')) return iconEl(k.slice(4), WEAPONS[k.slice(4)].icon);
   if (ITEMS[k]) return iconEl('i_' + k, ITEMS[k].name[0]);
+  if (k.startsWith('skin:')) return spriteIcon(SKINS[k.slice(5)].sprite);
   return spriteIcon(k);
 }
 function renderBook() {
@@ -781,7 +821,7 @@ function renderBook() {
   }
 }
 const bookOpen = () => $('book').classList.contains('show');
-function openBook(on) { if (on) renderBook(); show('book', on); if (on) $('book').querySelector('.panel').scrollTop = 0; (on ? $('bookBack') : $('bookBtn')).focus({ preventScroll: true }); }
+function openBook(on) { if (!on && $('book').classList.contains('show')) SFX.play('back'); if (on) renderBook(); show('book', on); if (on) $('book').querySelector('.panel').scrollTop = 0; (on ? $('bookBack') : $('bookBtn')).focus({ preventScroll: true }); }
 $('bookBtn').addEventListener('click', () => openBook(true));
 $('bookBack').addEventListener('click', () => openBook(false));
 

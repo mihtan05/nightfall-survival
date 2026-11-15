@@ -28,6 +28,7 @@ function normMeta(m) {
   if (!Array.isArray(m.unlocked)) m.unlocked = ['bolt'];
   if (!Array.isArray(m.book)) m.book = [];
   if (!Array.isArray(m.missions)) m.missions = [];
+  if (!Array.isArray(m.skins)) m.skins = ['wizard'];
   m.missions = m.missions.filter(x => x && MISSIONS.some(d => d.id === x.id));
   return m;
 }
@@ -42,8 +43,14 @@ function bookAdd(key) {
 }
 const saveMeta = () => store.set('vs_meta', META);
 const metaLv = id => META.up[id] || 0;
-const SETUP = { start: store.get('vs_start', 'bolt'), nm: false };   // lựa chọn ở menu cho ván tiếp theo
+const SETUP = { start: store.get('vs_start', 'bolt'), nm: false, skin: store.get('vs_skin', 'wizard') };   // lựa chọn ở menu cho ván tiếp theo
 if (!META.unlocked.includes(SETUP.start)) SETUP.start = 'bolt';
+if (!SKINS[SETUP.skin] || !META.skins.includes(SETUP.skin)) SETUP.skin = 'wizard';
+// Đổi hình người chơi theo nhân vật đã chọn (chỉ hình; thiếu ảnh thì vẫn vẽ SHAPES.player)
+function applySkin(id) {
+  const k = SKINS[id] && ASSETS[SKINS[id].sprite] ? SKINS[id].sprite : 'heroWizard';
+  if (ASSETS[k]) ASSETS.player = ASSETS[k];
+}
 const tmp = [];
 const POOLS = ['enemies', 'bullets', 'shots', 'gems', 'parts', 'fx', 'sfx', 'texts'];
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -88,7 +95,7 @@ function resetWorld() {
     combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, chests: 0,
     freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0,
     cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1, rerolls: CFG.rerolls + metaRoll(metaLv('roll')).rerolls,
-    stats: newStats({ [SETUP.start]: 0 }), bookNew: [], bookSeen: Object.fromEntries(META.book.map(k => [k, true])), misDone: [],
+    stats: newStats({ [SETUP.start]: 0 }), bookNew: [], bookSeen: Object.fromEntries(META.book.map(k => [k, true])), misDone: [], freshSkins: [],
     nm: SETUP.nm, endless: false, bossKills: 0, evolved: false, soulsGiven: 0, endDef: null, novaFreeAt: 0, healT0: -9, healAmt: 0,
     wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   });
@@ -190,7 +197,7 @@ function updateWave(dt) {
 function spawnBoss(type) {
   const def = ENEMIES[type], e = spawnEnemy(type);
   e.skillCd = {}; e.skill = null; e.nextSkill = 2; e.age = 0; e.haste = 0; e.used2 = false;
-  G.boss = e; addShake(8); SFX.play('boss');
+  G.boss = e; addShake(8); SFX.play('boss', { x: e.x });
   G.cine = { t: CFG.cine.dur, x: e.x, y: e.y };
   showBossCard(def);
   setBossName(def.name);
@@ -247,14 +254,14 @@ function startSkill(e, def) {
       addZone(p.x + Math.cos(a) * off, p.y + Math.sin(a) * off, S.r, sk.t + i * (id === 'meteor' ? 0.15 : 0.3), S.dmg * e.dmgScale);
     }
   }
-  SFX.play('warn');
+  SFX.windup(id, sk.t, e.x); // mỗi kỹ năng một tiếng dâng riêng, dài đúng thời gian báo trước
 }
 // Trả về hệ số di chuyển của boss trong bước này (0 = đứng yên khi đang tung chiêu)
 function updateBoss(e, def, dt) {
   if (!e.raged && e.hp < e.maxHp * 0.5) { // nổi giận: khoảnh khắc riêng để người chơi nhận ra
     e.raged = true; hitStop(0.12); addShake(8);
     const f = addFx('ring', e.x, e.y, 0.35); f.maxR = 140; f.color = '#ff3b5c';
-    banner(def.name, 'NỔI GIẬN!'); SFX.play('warn');
+    banner(def.name, 'NỔI GIẬN!'); SFX.play('warn', { x: e.x });
   }
   // cuồng nộ dần: trận kéo dài thì boss nhanh hơn (hồi chiêu, báo trước ngắn lại)
   const ER = CFG.enrage; e.age += dt;
@@ -276,7 +283,7 @@ function updateBoss(e, def, dt) {
     if (sk.id === 'ring') {
       const off = Math.random() * TAU;
       for (let i = 0; i < S.n; i++) enemyShoot(e.x, e.y, off + i * TAU / S.n, S.speed, S.dmg * e.dmgScale);
-      SFX.play('eshoot');
+      SFX.play('eshoot', { x: e.x });
     } else if (sk.id === 'summon') {
       const sm = def.summon;
       for (let i = 0; i < sm.n; i++) {
@@ -317,14 +324,14 @@ function updateBoss(e, def, dt) {
 // Vòng đạn có khe hở `S.hole` viên bắt đầu từ chỉ số `hole`
 function wallRing(e, S, hole) {
   for (let i = 0; i < S.n; i++) { if ((i - hole + S.n) % S.n < S.hole) continue; enemyShoot(e.x, e.y, i * TAU / S.n, S.speed, S.dmg * e.dmgScale); }
-  SFX.play('eshoot');
+  SFX.play('eshoot', { x: e.x });
 }
 // rings: bắn vòng thứ sk.k khi tới lượt (mỗi S.every giây), mỗi vòng lệch nửa bước so với vòng trước
 function ringsStep(e, S, sk) {
   while (sk.k < S.k && S.dur - Math.max(0, sk.t) >= sk.k * S.every - 1e-9) {
     const off = sk.off + sk.k * Math.PI / S.n;
     for (let i = 0; i < S.n; i++) enemyShoot(e.x, e.y, off + i * TAU / S.n, S.speed, S.dmg * e.dmgScale);
-    sk.k++; SFX.play('eshoot');
+    sk.k++; SFX.play('eshoot', { x: e.x });
   }
 }
 
@@ -334,7 +341,7 @@ function addZone(x, y, r, delay, dmg, hurtE = 0) { G.zones.push({ x, y, r, t: de
 // Quỷ nổ phát nổ: tạo vùng báo trước rồi biến mất
 function bomberBlast(e) {
   const B = ENEMIES[e.type].bomb; addZone(e.x, e.y, B.r, B.delay, B.dmg * e.dmgScale, B.enemyDmg);
-  playFx('puff', e.x, e.y + 6); SFX.play('warn');
+  playFx('puff', e.x, e.y + 6); SFX.play('warn', { x: e.x });
 }
 // Kỵ sĩ xương: 0 đi bộ → 1 báo trước (đứng yên, vạch đỏ) → 2 lao thẳng. Trả về [hệ số di chuyển, tốc độ lao hoặc 0]
 function updateCharger(e, C, d, dx, dy, dt) {
@@ -350,7 +357,7 @@ function updateCharger(e, C, d, dx, dy, dt) {
 function spawnElite(type) {
   const E = CFG.elite, e = spawnEnemy(type || E.types[Math.floor(Math.random() * E.types.length)]);
   e.maxHp = e.hp *= E.hp; e.sc = E.sc; e.r *= E.r; e.dmg *= E.dmg; e.mass *= E.mass; e.elite = true; e.xp = E.gem;
-  SFX.play('warn');
+  SFX.play('warn', { x: e.x });
   return e;
 }
 function updateZones(dt) {
@@ -364,7 +371,7 @@ function updateZones(dt) {
       for (let j = 0; j < tmp.length; j++) { const e = tmp[j]; if (!e.dead && !e.prop && Math.hypot(e.x - z.x, e.y - z.y) < z.r + e.r) hitEnemy(e, z.hurtE, e.x - z.x, e.y - z.y, 1, null, 'zone'); }
     }
     playFx('boom', z.x, z.y + z.r * 0.3); burst(z.x, z.y, '#ff9a3d', 10, 160, 3, 0.4);
-    addShake(3); SFX.play('slam');
+    addShake(3); SFX.play('slam', { x: z.x });
     G.zones.splice(i, 1);
   }
 }
@@ -372,7 +379,7 @@ function updateZones(dt) {
 function updateBooms(dt) {
   for (let i = G.booms.length - 1; i >= 0; i--) {
     const b = G.booms[i]; if ((b.t -= dt) > 0) continue;
-    playFx('boom', b.x, b.y); burst(b.x, b.y, '#ffd166', 10, 160, 3, 0.5); addShake(4); SFX.play('slam');
+    playFx('boom', b.x, b.y); burst(b.x, b.y, '#ffd166', 10, 160, 3, 0.5); addShake(4); SFX.play('slam', { x: b.x });
     if (b.chest) dropPickup(b.cx, b.cy, 'chest', 0);
     G.booms.splice(i, 1);
   }
@@ -523,7 +530,7 @@ function updateEnemies(dt) {
       if (d < R * 0.55) { mx = -mx * 0.5; my = -my * 0.5; } else if (d < R * 0.85) { mx *= 0.15; my *= 0.15; }
       e.shootT -= dt;
       e.tele = e.shootT < 0.3 && d < R + 60; // báo trước 0.3 giây: quả cầu tím tụ trên đầu
-      if (e.shootT <= 0 && d < R + 60) { e.shootT = def.ranged.cd * rand(0.8, 1.2); e.tele = false; enemyShoot(e.x, e.y, Math.atan2(dy, dx), def.ranged.speed, e.shotDmg); SFX.play('eshoot'); }
+      if (e.shootT <= 0 && d < R + 60) { e.shootT = def.ranged.cd * rand(0.8, 1.2); e.tele = false; enemyShoot(e.x, e.y, Math.atan2(dy, dx), def.ranged.speed, e.shotDmg); SFX.play('eshoot', { x: e.x }); }
     }
     if (e.boss) { mv = updateBoss(e, def, frozen ? dt * 0.5 : dt); if (frozen) spd *= 0.5; }
     // tách quái để không chồng lên nhau
@@ -628,7 +635,7 @@ function strike(x, y, dmg, aoe, src = 'lightning', w = null) {
   }
   burst(x, y, '#bfe6ff', L.parts, 160, 2.5, 0.35);
   addShake(1.5);
-  SFX.play('zap');
+  SFX.play('zap', { x, tier });
 }
 
 function addText(x, y, txt, color) {
@@ -700,13 +707,13 @@ function hitEnemy(e, dmg, kx, ky, kb = 1, fx = null, src = '?', fxk = 1) {
   if (fx) playFx(fx, e.x + rand(-3, 3), e.y - e.r * 0.2, fx === 'arrowHit' ? Math.atan2(ky, kx) : 0, null, 0, fxk);
   addDmgText(e, dmg);
   if (e.hp <= 0) { G.stats.kby[src] = (G.stats.kby[src] || 0) + 1; killEnemy(e); }
-  else { SFX.play('hit'); if (G.parts.items.length < CFG.partCap * 0.6) burst(e.x, e.y, ENEMIES[e.type].color, 2, 90, 2, 0.25); }
+  else { SFX.play('hit', { x: e.x }); if (G.parts.items.length < CFG.partCap * 0.6) burst(e.x, e.y, ENEMIES[e.type].color, 2, 90, 2, 0.25); }
 }
 
 function killEnemy(e) {
   e.dead = true;
   if (e.prop) { // thùng gỗ: không tính là quái hạ, luôn rơi một vật phẩm
-    playFx('puff', e.x, e.y + 6); burst(e.x, e.y, ENEMIES.crate.color, 10, 120, 3, 0.4); SFX.play('crate');
+    playFx('puff', e.x, e.y + 6); burst(e.x, e.y, ENEMIES.crate.color, 10, 120, 3, 0.4); SFX.play('crate', { x: e.x });
     dropPickup(e.x, e.y, rollItem(), 0);
     return;
   }
@@ -730,7 +737,7 @@ function killEnemy(e) {
     G.slowT = D.slow; G.flashT = 0.2; G.flashColor = '#ffffff';
     if (G.boss === e) G.boss = null;
     G.bossKills++;
-    addShake(CFG.shakeMax); hitStop(CFG.hitStop.boss); SFX.play('bossdie');
+    addShake(CFG.shakeMax); hitStop(CFG.hitStop.boss); SFX.play('bossdie', { x: e.x });
   } else {
     const big = e.r > 15;
     playFx(big ? 'boom' : 'puff', e.x, e.y + e.r * 0.6);
@@ -751,7 +758,7 @@ function killEnemy(e) {
       if (G.healAmt < H.cap) { const h = Math.min(H.per, H.cap - G.healAmt); G.healAmt += h; P.hp = Math.min(P.maxHp, P.hp + h); }
     }
     if (Math.random() < CFG.itemChance * (1 + 0.05 * metaRoll(metaLv('roll')).item)) dropPickup(e.x + 10, e.y, rollItem(), 0);
-    SFX.play('kill', 1 + Math.min(CFG.combo.pitchMax, G.combo * CFG.combo.pitch)); // chuỗi dài: tiếng hạ quái cao dần
+    SFX.play('kill', { rate: 1 + Math.min(CFG.combo.pitchMax, G.combo * CFG.combo.pitch), x: e.x }); // chuỗi dài: tiếng hạ quái cao dần
   }
 }
 /* Chuỗi hạ gục (V5 Phase 7): đếm quái hạ liên tiếp, mất sau CFG.combo.window giây không hạ.
@@ -822,7 +829,7 @@ function updateFx(dt) {
   for (const f of G.fx.items) {
     if (f.type === 'nova') {
       if (f.delay > 0) { f.delay -= dt; continue; }
-      if (!f.started) { f.started = true; f.x = p.x; f.y = p.y; SFX.play('nova'); addShake(2.5); novaLook(f); }
+      if (!f.started) { f.started = true; f.x = p.x; f.y = p.y; SFX.play('nova', { tier: f.tier }); addShake(2.5); novaLook(f); }
       if (f.r < f.maxR) {
         f.r = Math.min(f.maxR, f.r + f.maxR / 0.35 * dt);
         G.grid.query(f.x, f.y, f.r + 30, tmp);

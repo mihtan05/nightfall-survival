@@ -246,7 +246,8 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .pick img{width:36px;height:36px}
 .pick:hover,.pick:focus-visible{border-color:var(--accent);outline:none;transform:translateY(-2px)}
 .pick[aria-checked="true"]{border-color:var(--gold);box-shadow:0 0 12px #ffd16666}
-.pick.locked img{filter:grayscale(1) brightness(.45)}
+.pick.locked img,.pick.locked canvas{filter:grayscale(1) brightness(.45)}
+.pick canvas.spr{position:static;inset:auto;width:40px;height:40px;image-rendering:pixelated}   /* bỏ quy tắc toàn màn hình của canvas game */
 .pick.locked i{position:absolute;right:-4px;bottom:-4px;font-size:14px;font-style:normal}
 .sub.hint{min-height:1.4em;margin:0 0 8px;font-size:14px}
 .nmtoggle{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;min-height:44px;cursor:pointer;color:#ffb3c0;font:22px/1 var(--px)}

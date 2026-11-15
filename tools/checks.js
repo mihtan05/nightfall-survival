@@ -171,13 +171,15 @@ window.runChecks = async function () {
   fresh(); const sp = spawnEnemy('splitter', P().x + 80, P().y); const sl0 = G.enemies.items.filter(e => e.type === 'slime').length; hitEnemy(sp, 1e9, 1, 0); const sl1 = G.enemies.items.filter(e => e.type === 'slime').length;
   fresh(); const ch = spawnEnemy('charger', P().x + 150, P().y); ch.chT = 0; G.player.hp = 1e9; v.tick(1 / 60); const chTele = ch.chPhase === 1;
   v.tick(0.5); const cx0 = ch.x; v.tick(0.4); const chDist = Math.abs(ch.x - cx0);
-  const tintOk = Assets.get('bomber') && Assets.get('bomber').img !== Assets.get('bat').img;
+  // V5 Phase 10: biến thể có sprite riêng (khung khác hẳn quái gốc) thay cho ảnh nhuộm
+  const fr0 = k => Assets.get(k) && JSON.stringify(Assets.get(k).meta.anims.run.frames[0]);
+  const tintOk = fr0('bomber') && fr0('bomber') !== fr0('bat') && fr0('charger') !== fr0('skeleton') && fr0('splitter') !== fr0('slime');
   fresh(); for (const t of ['bomber', 'splitter', 'charger']) spawnEnemy(t, P().x + rand(-60, 60), P().y + rand(-40, 40));
   const el = v.spawnElite('golem'); el.x = P().x + 50; el.y = P().y;
   const rg = Assets.get; let shapeErr = ''; Assets.get = () => null; try { render(1); } catch (err) { shapeErr = String(err); } Assets.get = rg;
   const gems0 = G.gems.items.length; hitEnemy(el, 1e9, 1, 0); const eliteDrop = G.gems.items.length - gems0;
-  ok('V4-3', '3.4 Quỷ nổ, nhớt mẹ, kỵ sĩ xương, tinh anh, ảnh nhuộm, hình dự phòng', bomberOk && sl1 - sl0 === 3 && chTele && Math.abs(chDist - 152) < 15 && tintOk && !shapeErr && eliteDrop >= 2,
-    `nổ ${bomberOk}, tách ${sl1 - sl0}, lao ${chTele}/${chDist.toFixed(0)}, nhuộm ${!!tintOk}, dự phòng ${shapeErr || 'ok'}, rơi ${eliteDrop}`);
+  ok('V4-3', '3.4 Quỷ nổ, nhớt mẹ, kỵ sĩ xương, tinh anh, sprite riêng, hình dự phòng', bomberOk && sl1 - sl0 === 3 && chTele && Math.abs(chDist - 152) < 15 && tintOk && !shapeErr && eliteDrop >= 2,
+    `nổ ${bomberOk}, tách ${sl1 - sl0}, lao ${chTele}/${chDist.toFixed(0)}, sprite riêng ${!!tintOk}, dự phòng ${shapeErr || 'ok'}, rơi ${eliteDrop}`);
   fresh(); G.player.hp = G.player.maxHp = 1e9; v.spawnBoss('bossZombie'); G.cine = null; G.boss.x = P().x + 200;
   v.tick(90); const hasteOk = G.boss.haste >= 0.1;
   const used = {};
@@ -301,6 +303,45 @@ window.runChecks = async function () {
   }
   while (G.state === 'levelup') v.choose(G.choices[0]); show('levelup', false);
   ok('V5-9', '9.4 Mọi nút trong menu, nâng cấp, sổ tay, tạm dừng, kết thúc, lên cấp ≥ 44 px', !small.length, small.join(', ') || 'ok');
+
+  // ---- V5 Phase 6: động cơ âm thanh ----
+  if (SFX.ctx && !SFX.muted) {
+    await SFX.ctx.resume();
+    fresh(); for (let i = 0; i < 300; i++) { const e = spawnEnemy('skeleton', P().x + rand(-160, 160), P().y + rand(-110, 110)); e.speed = 0; }
+    const read = SFX.meter(); SFX.last = {};
+    for (let i = 0; i < 10; i++) v.tick(CFG.step); // vài bước cho quái vào lưới
+    v.pickItem('bomb'); v.tick(0.5); await wait(900);
+    const peak6 = read();
+    // chờ mọi âm file kết thúc (âm dài nhất ~1 giây)
+    let act = 1; for (let k = 0; k < 20 && act; k++) { await wait(150); act = Object.values(SFX.active).reduce((a, b) => a + b, 0) + Object.values(SFX.voices).reduce((a, b) => a + b.length, 0); }
+    read(true);
+    ok('V5-6', '6.1 Bom giữa 300 quái: đỉnh đầu ra < 1.0, số giọng đang phát về 0', peak6 > 0 && peak6 < 1 && act === 0, `đỉnh ${peak6.toFixed(3)}, còn ${act} giọng`);
+  } else ok('V5-6', '6.1 Bom giữa 300 quái: đỉnh < 1.0 (cần bấm Bắt đầu, không tắt tiếng)', false, 'chưa mở âm thanh');
+  { // dự phòng: bỏ hết file → mọi âm vẫn phát bằng tổng hợp, không ném lỗi; có lệch trái/phải và bậc vũ khí
+    const bufs = SFX.bufs, errs = []; SFX.bufs = {}; SFX.last = {};
+    for (const n of Object.keys(SFX.defs)) { try { SFX.play(n, { x: P().x + 100, tier: 3 }); } catch (e) { errs.push(n + ': ' + e.message); } }
+    for (const id of Object.keys(BOSS_SKILLS)) { try { SFX.windup(id, 0.3, P().x - 50); } catch (e) { errs.push(id + ': ' + e.message); } }
+    SFX.bufs = bufs;
+    const missing = Object.keys(SFX_FILES).filter(n => !SFX.defs[n]).concat(Object.keys(BOSS_SKILLS).filter(id => !WINDUP_CUES[id]));
+    ok('V5-6', '6.2 Mọi âm có bản tổng hợp dự phòng, mọi kỹ năng boss có âm báo trước riêng, không lỗi', !errs.length && !missing.length, errs.concat(missing).join('; ') || `${Object.keys(SFX.defs).length} âm, ${Object.keys(WINDUP_CUES).length} âm báo trước`);
+  }
+  { // âm lượng theo vai: âm dày nhỏ hơn phần thưởng, phần thưởng nhỏ hơn nguy hiểm (tính theo RMS sau hệ số)
+    const lv = n => SFX.meas[n] ? SFX.meas[n].rmsDb + 20 * Math.log10(SFX.gain[n]) : NaN;
+    const f = Math.max(lv('hit'), lv('gem'), lv('kill')), rw = lv('chest'), dg = lv('hurt');
+    ok('V5-6', '6.3 Âm lượng theo vai: âm dày < phần thưởng < nguy hiểm', f < rw && rw < dg, `dày ${f.toFixed(1)} dB, thưởng ${rw.toFixed(1)} dB, nguy hiểm ${dg.toFixed(1)} dB`);
+  }
+  { // ---- V5 Phase 10: nhân vật (chỉ đổi hình) ----
+    META.skins = ['wizard']; fresh(); G.wave.i = 2; G.kills = 10; G.bossKills = 0; grantMeta();
+    const opened = META.skins.includes('knight') && G.freshSkins.includes('knight') && !META.skins.includes('lizard');
+    applySkin('knight'); const swapped = ASSETS.heroKnight && ASSETS.player === ASSETS.heroKnight; applySkin('wizard');
+    const back = ASSETS.player === ASSETS.heroWizard;
+    SETUP.skin = 'knight'; startGame(); const booked = META.book.includes('skin:knight') && ASSETS.player === ASSETS.heroKnight;
+    const same = G.player.maxHp === newPlayer(SETUP.start).maxHp && G.player.speed === newPlayer(SETUP.start).speed;
+    SETUP.skin = 'wizard'; applySkin('wizard'); renderMenu();
+    const skinBtns = document.querySelectorAll('#skinPick button').length;
+    ok('V5-10', '10.1 Đến đợt 3 mở Hiệp Sĩ; chọn nhân vật chỉ đổi hình, ghi sổ tay, menu có 4 ô', opened && swapped && back && same && booked && skinBtns === 4,
+      `mở ${opened}, đổi hình ${!!swapped}, về gốc ${back}, chỉ số như nhau ${same}, ghi sổ ${booked}, ${skinBtns} ô`);
+  }
   for (const k of Object.keys(META)) delete META[k];
   Object.assign(META, JSON.parse(metaAll));
   for (const [k, val] of lsAll) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);

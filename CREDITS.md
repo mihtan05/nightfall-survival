@@ -5,8 +5,8 @@
 **16x16 DungeonTileset II v1.7** — tác giả Robert (0x72), phối màu lại bởi GrafxKid
 - Trang gốc: https://0x72.itch.io/dungeontileset-ii
 - Giấy phép: **CC0** ("You can use this tileset for whatever you like (CC-0)" — trang gốc). Không bắt buộc ghi nguồn, ghi để cảm ơn tác giả.
-- File gốc: `vendor/0x72/0x72_DungeonTilesetII_v1.7.zip` (416 kB, tải ngày 2026-11-14)
-- Game dùng: `assets/atlas.png`, ghép bằng `tools/build_atlas.py` từ 64 khung của gói. Atlas không có viền; viền sáng quanh nhân vật/quái được game vẽ lúc chạy.
+- File gốc: `vendor/0x72/0x72_DungeonTilesetII_v1.7.zip` (416 kB, tải ngày 2026-11-14; tải lại 2026-11-15 cho V5 Phase 10, giải nén ở `vendor/0x72/x/`)
+- Game dùng: `assets/atlas.png`, ghép bằng `tools/build_atlas.py` từ 134 khung của gói (V5 Phase 10 thêm 47 khung). Atlas không có viền; viền sáng quanh nhân vật/quái được game vẽ lúc chạy.
 
 | Trong game | Sprite gốc |
 |---|---|
@@ -23,6 +23,10 @@
 | Nền | `floor_1` … `floor_8`, `skull` |
 | Boss Vua Thây Ma / Đại Pháp Sư Tử Linh / Quỷ Khổng Lồ Đá | `big_zombie_*` / `necromancer_anim_*` (phóng to) / `ogre_*` (phóng to) |
 | Thùng gỗ | `crate` |
+| Quỷ nổ (V5 Phase 10) | `chort_*` |
+| Nhớt mẹ (V5 Phase 10) | `muddy_anim_*` |
+| Kỵ sĩ xương (V5 Phase 10) | `masked_orc_*` |
+| Nhân vật Hiệp Sĩ / Tiên Rừng / Thằn Lằn Chiến (V5 Phase 10) | `knight_m_*` / `elf_f_*` / `lizard_m_*` |
 | Bình máu, khiên, thuốc gió, thuốc cuồng nộ, bom | `flask_big_red/blue/green/yellow`, `bomb_f0–2` |
 | Icon giao diện | `weapon_arrow`, `weapon_red_gem_sword`, `weapon_knife`, `weapon_big_hammer`, `weapon_golden_sword`, `flask_green`, `ui_heart_full`, `skull`… (các icon còn lại vẽ bằng code trong `js/icons.js`) |
 
@@ -72,7 +76,7 @@ Tất cả gói dưới đây là **CC0** (tải ngày 2026-11-14, file gốc tr
 | | | `impactPunch_heavy_000–001` | Người chơi bị đánh |
 | 50 RPG sound effects | https://opengameart.org/content/50-rpg-sound-effects | `knifeSlice`, `knifeSlice2` | Dao Bạc |
 | | | `chop` | Vòng Huyết Nguyệt |
-| | | `handleCoins`, `handleCoins2` | Mở rương |
+| | | `handleCoins`, `handleCoins2` | (không dùng từ V5 Phase 6, giữ lại để đổi lại nếu cần) |
 | Interface Sounds | https://opengameart.org/content/interface-sounds | `glass_001–003` | Nhặt ngọc |
 | | | `select_001–002` | Chọn thẻ nâng cấp |
 
@@ -81,4 +85,34 @@ Tất cả gói dưới đây là **CC0** (tải ngày 2026-11-14, file gốc tr
 - `assets/music/level3.webm` ← "Level 3" (nhạc khi có boss)
 - Đã chuyển từ WAV 44.1 kHz (13–14 MB/bài) sang Opus/WebM 96 kbps (~0.9 MB/bài).
 
-Các âm phép thuật (bắn tiễn, sét, sóng, boss gầm, lên cấp, thắng/thua…) vẫn tổng hợp bằng WebAudio trong `js/audio.js`; đây cũng là âm dự phòng khi không nạp được file.
+### Thêm ở V5 Phase 6 (tải ngày 2026-11-15, đều CC0, file gốc trong `vendor/audio/`)
+
+| Gói | Tác giả / nguồn | Giấy phép (trên trang gốc) | Tải | Tiền tố trong `assets/sfx/` |
+|---|---|---|---|---|
+| Digital Audio | Kenney — https://kenney.nl/assets/digital-audio | "Creative Commons CC0" (+ License.txt trong gói) | 0.99 MB | `kd_` |
+| Interface Sounds | Kenney — https://kenney.nl/assets/interface-sounds | "Creative Commons CC0" | 0.83 MB | `ki_` |
+| Music Jingles | Kenney — https://kenney.nl/assets/music-jingles | "Creative Commons CC0" | 1.24 MB | `kj_` |
+| The Essential Retro Video Game Sound Effects Collection [512 sounds] | Juhani Junkala (SubspaceAudio) — https://opengameart.org/content/512-sound-effects-8-bit-style | License(s): CC0 | 20.6 MB | `r5_` |
+
+| Trong game | File | Gốc |
+|---|---|---|
+| Huyết Tiễn bắn / đạn quái | `r5_wpn_laser1.wav` / `r5_wpn_laser9.wav` | 512: Weapons/Lasers |
+| Lôi Phạt / Sóng Xung Kích | `r5_exp_shortest_hard1.wav` / `r5_exp_short_soft1.wav` | 512: Explosions |
+| Boss xuất hiện / boss chết / bom | `r5_exp_long1/4/2.wav` | 512: Explosions/Long |
+| Dậm đất, vùng nổ | `r5_exp_short_hard1.wav` | 512: Explosions/Short |
+| Gục | `r5_sounds_negative1.wav` | 512: General Sounds/Negative |
+| Cảnh báo | `r5_sounds_error1.wav` | 512: General Sounds/Negative |
+| Hồi máu / nhặt vật phẩm | `r5_sounds_powerup3.wav` / `r5_sounds_powerup1.wav` | 512: Positive Sounds |
+| Rương / xong nhiệm vụ | `r5_coin_cluster3.wav` / `r5_coin_double1.wav` | 512: Coins |
+| Thùng gỗ vỡ | `r5_sounds_impact5.wav` | 512: Impacts |
+| Lướt né | `r5_movement_jump1.wav` | 512: Movement |
+| Tiến hoá | `r5_movement_portal1.wav` | 512: Portals and Transitions |
+| Lên cấp / thắng | `kj_jingles_NES03` / `kj_jingles_NES00` | Music Jingles: 8-Bit |
+| Vũ khí lên bậc | `kd_powerUp7` | Digital Audio |
+| Đồng hồ băng / khiên đỡ đòn | `kd_zapThreeToneDown` / `kd_phaseJump1` | Digital Audio |
+| Thông báo mốc / rê chuột / quay lại | `ki_confirmation_002` / `ki_tick_001` / `ki_back_001` | Interface Sounds |
+
+File `.wav` của gói 512 được `tools/sfx_import.py` đổi về mono 22.05 kHz 16-bit và cắt đuôi im lặng (máy chưa có ffmpeg để nén .ogg); tổng ~0.7 MB.
+Danh sách đang chọn: `tools/sfx-pick.json`; nghe thử và đổi bằng `tools/sfx-audition.html`.
+
+Còn tổng hợp bằng WebAudio trong `js/audio.js`: mốc combo, nghi thức mở rương, hết nguy kịch, nhịp tim máu thấp, âm báo trước từng kỹ năng boss (`WINDUP_CUES`), lớp thêm theo bậc vũ khí. Mọi âm đều còn bản tổng hợp làm dự phòng khi không nạp được file.

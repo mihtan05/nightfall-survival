@@ -91,7 +91,7 @@ const ASSETS = {};
    golem → Quỷ khổng lồ (ogre), boss → Chúa Tể Bóng Đêm (big_demon). Mã nội bộ giữ nguyên.
    anims: tên: [tiền tố khung, số khung (0 = một khung không đánh số), fps]
    anchor tính theo px trong khung (đã gồm lề trong suốt 1px), đặt trùng tâm va chạm của vật. */
-const ATLAS_SRC = typeof ATLAS !== 'undefined' ? ATLAS.src + '?v=g6' : null;
+const ATLAS_SRC = typeof ATLAS !== 'undefined' ? ATLAS.src + '?v=g7' : null;
 const SPRITES = {
   player:   { anchor: [9, 19],    scale: 1,   anims: { idle: ['wizzard_m_idle_anim_f', 4, 6], run: ['wizzard_m_run_anim_f', 4, 10], hit: ['wizzard_m_hit_anim_f', 1, 1] } },
   bat:      { anchor: [9, 11],    scale: 1.2, anims: { idle: ['imp_idle_anim_f', 4, 8], run: ['imp_run_anim_f', 4, 12] } },
@@ -103,10 +103,15 @@ const SPRITES = {
   bossZombie: { anchor: [17, 25], scale: 1.7, anims: { idle: ['big_zombie_idle_anim_f', 4, 5], run: ['big_zombie_run_anim_f', 4, 8] } },
   bossNecro:  { anchor: [9, 15],  scale: 2.4, anims: { run: ['necromancer_anim_f', 4, 6] } },
   bossOgre:   { anchor: [17, 25], scale: 1.9, anims: { idle: ['ogre_idle_anim_f', 4, 4], run: ['ogre_run_anim_f', 4, 6] } },
-  // biến thể: dùng lại sprite có sẵn, nhuộm màu (tint: [màu, độ đậm]) và đổi cỡ
-  bomber:   { anchor: [9, 11],    scale: 1.35, tint: ['#ff9a3d', 0.45], anims: { idle: ['imp_idle_anim_f', 4, 8], run: ['imp_run_anim_f', 4, 14] } },
-  splitter: { anchor: [9, 11],    scale: 2.4, anims: { run: ['swampy_anim_f', 4, 6] } },
-  charger:  { anchor: [9, 11],    scale: 1.6, tint: ['#6fa8ff', 0.4], anims: { idle: ['skelet_idle_anim_f', 4, 6], run: ['skelet_run_anim_f', 4, 10] } },
+  // biến thể (V5 Phase 10: sprite riêng, nhận ra bằng dáng): Quỷ nổ = chort (sừng), Nhớt mẹ = muddy (bùn), Kỵ sĩ = masked_orc (mặt nạ).
+  // Điểm neo đo từ khung hình (tâm vùng có điểm ảnh, đã cộng lề 1px). `tint: [màu, độ đậm]` vẫn dùng được nếu cần nhuộm.
+  bomber:   { anchor: [9.5, 15],  scale: 1.15, anims: { idle: ['chort_idle_anim_f', 4, 8], run: ['chort_run_anim_f', 4, 14] } },
+  splitter: { anchor: [9, 11],    scale: 2.4,  anims: { run: ['muddy_anim_f', 4, 6] } },
+  charger:  { anchor: [10, 16],   scale: 1.4,  anims: { idle: ['masked_orc_idle_anim_f', 4, 6], run: ['masked_orc_run_anim_f', 4, 10] } },
+  // nhân vật thay thế (skin, chỉ đổi hình — xem SKINS)
+  heroKnight: { anchor: [9.5, 19], scale: 1, anims: { idle: ['knight_m_idle_anim_f', 4, 6], run: ['knight_m_run_anim_f', 4, 10], hit: ['knight_m_hit_anim_f', 1, 1] } },
+  heroElf:    { anchor: [9.5, 20], scale: 1, anims: { idle: ['elf_f_idle_anim_f', 4, 6], run: ['elf_f_run_anim_f', 4, 10], hit: ['elf_f_hit_anim_f', 1, 1] } },
+  heroLizard: { anchor: [10, 19.5], scale: 1, anims: { idle: ['lizard_m_idle_anim_f', 4, 6], run: ['lizard_m_run_anim_f', 4, 10], hit: ['lizard_m_hit_anim_f', 1, 1] } },
   crate:    { anchor: [9, 17],    scale: 1.2, anims: { idle: ['crate', 0, 1] } },
   potion:   { anchor: [9, 9],     scale: 1,   anims: { idle: ['flask_big_red', 0, 1] } },
   shield:   { anchor: [9, 9],     scale: 1,   anims: { idle: ['flask_big_blue', 0, 1] } },
@@ -130,7 +135,17 @@ if (ATLAS_SRC) {
     const src = s.tint ? `${ATLAS_SRC}#tint=${s.tint[0]},${s.tint[1]}` : ATLAS_SRC;
     if (Object.keys(anims).length) ASSETS[kind] = { src, anchor: s.anchor, scale: s.scale, rotate: s.rotate, anims };
   }
+  if (ASSETS.player) ASSETS.heroWizard = ASSETS.player;   // hình gốc của Pháp sư (ASSETS.player bị thay theo skin, xem applySkin)
 }
+
+/* Nhân vật (V5 Phase 10): CHỈ đổi hình, chỉ số như nhau. sprite: mục trong ASSETS. unlock giống UNLOCKS (kiểm ở endRun,
+   r = { wave, kills, bosses, evo }); null = có sẵn. Chọn ở menu, lưu ở vs_skin; đã mở lưu ở META.skins. */
+const SKINS = {
+  wizard: { name: 'Pháp Sư',        sprite: 'heroWizard', unlock: null },
+  knight: { name: 'Hiệp Sĩ',        sprite: 'heroKnight', unlock: { text: 'Đến đợt 3',                  ok: r => r.wave >= 3,     prog: r => [Math.min(r.wave, 3), 3] } },
+  elf:    { name: 'Tiên Rừng',      sprite: 'heroElf',    unlock: { text: 'Hạ 1000 quái trong một ván', ok: r => r.kills >= 1000, prog: r => [Math.min(r.kills, 1000), 1000] } },
+  lizard: { name: 'Thằn Lằn Chiến', sprite: 'heroLizard', unlock: { text: 'Chiến thắng một ván',        ok: r => r.bosses >= 4,   prog: r => [Math.min(r.bosses, 4), 4] } },
+};
 
 const ENEMIES = {
   bat:      { hp: 5,   speed: 105, dmg: 6,  r: 9,  xp: 1, mass: 0.6, color: '#d04a3a' },
@@ -141,9 +156,9 @@ const ENEMIES = {
   // Quỷ nổ: lao nhanh, tới gần (hoặc bị hạ) thì nổ thành vùng sát thương — vùng này cũng làm hại quái
   bomber:   { hp: 10,  speed: 125, dmg: 0,  r: 10, xp: 3, mass: 0.6, color: '#ff9a3d', cap: 8, bomb: { near: 46, r: 40, delay: 0.55, dmg: 14, enemyDmg: 30 } },
   // Nhớt mẹ: chết thì tách thành 3 nhớt con
-  splitter: { hp: 70,  speed: 40,  dmg: 11, r: 18, xp: 4, mass: 3,   color: '#4fbf5a', split: { type: 'slime', n: 3, kb: 120 } },
+  splitter: { hp: 70,  speed: 40,  dmg: 11, r: 18, xp: 4, mass: 3,   color: '#8a6d64', split: { type: 'slime', n: 3, kb: 120 } },
   // Kỵ sĩ xương: dừng lại báo trước (vạch đỏ) rồi lao thẳng
-  charger:  { hp: 45,  speed: 60,  dmg: 14, r: 12, xp: 5, mass: 1.5, color: '#6fa8ff', cap: 6, charge: { min: 70, max: 190, tele: 0.5, dur: 0.4, speed: 380, cd: 4, len: 150 } },
+  charger:  { hp: 45,  speed: 60,  dmg: 14, r: 12, xp: 5, mass: 1.5, color: '#c0603a', cap: 6, charge: { min: 70, max: 190, tele: 0.5, dur: 0.4, speed: 380, cd: 4, len: 150 } },
   crate:    { hp: 1,   speed: 0,   dmg: 0,  r: 9,  xp: 0, mass: 99,  color: '#a8743e', prop: true }, // thùng gỗ phá được
 
   /* Boss cuối mỗi đợt. skills: tên kỹ năng trong BOSS_SKILLS (lặp tên = hay dùng hơn); summon: lâu la gọi ra.
@@ -241,7 +256,7 @@ const WEAPONS = {
         lookBullet(bl, w);
       }
       const a0 = Math.atan2(targets[0].y - p.y, targets[0].x - p.x); castCue(w, p.x + Math.cos(a0) * 12, p.y - 4 + Math.sin(a0) * 12); // loé phía trước, không che mặt
-      SFX.play('shoot');
+      SFX.play('shoot', { tier: weaponTier(w) });
     },
   },
   orbit: {
@@ -267,7 +282,7 @@ const WEAPONS = {
           if (e.dead || e.orbCd > 0) continue;
           const rr = e.r + r;
           if ((e.x - ox) ** 2 + (e.y - oy) ** 2 < rr * rr) {
-            e.orbCd = w.hitCd; hitEnemy(e, w.dmg * dmgMul(p), e.x - p.x, e.y - p.y, 0.7, 'claw', 'orbit', weaponLook(w).impact); SFX.play('orb');
+            e.orbCd = w.hitCd; hitEnemy(e, w.dmg * dmgMul(p), e.x - p.x, e.y - p.y, 0.7, 'claw', 'orbit', weaponLook(w).impact); SFX.play('orb', { x: e.x, tier: weaponTier(w) });
           }
         }
       }
@@ -322,7 +337,7 @@ const WEAPONS = {
         lookBullet(kb, w);
       }
       castCue(w, p.x + p.dirX * 14, p.y + p.dirY * 14);
-      SFX.play('knife');
+      SFX.play('knife', { tier: weaponTier(w) });
     },
   },
   aura: {
@@ -422,6 +437,39 @@ CFG.callGap = 1;          // giới hạn chung: tối đa 1 dòng chữ lớn (
 CFG.chestCere = { dur: 1.2, spin: 0.06 };   // mở rương: dừng thế giới bấy nhiêu giây thật (bỏ qua bằng phím/chạm); đổi icon mỗi spin giây
 CFG.xpNear = 0.85;        // thanh kinh nghiệm lấp lánh khi đầy hơn mức này
 CFG.lowHp = { on: 0.25, off: 0.4 }; // viền đỏ + thanh máu run khi máu < on; tắt (kèm âm nhẹ) khi máu > off
+/* Phối âm (V5 Phase 6). Số đặt từ đo đạc (RMS của file đã giải mã), còn cần tai người duyệt lại.
+   limiter: nén ở bus tổng, coi như chặn đỉnh — bom giữa 300 quái không vỡ tiếng. post: hạ thêm sau limiter để còn khoảng trống.
+   roleDb: RMS đích (dBFS) theo VAI của âm, không theo file: âm dày (bắn/trúng/ngọc) nhỏ, phần thưởng to hơn, nguy hiểm to nhất.
+   Độ to đo = RMS lớn nhất trong cửa sổ 100 ms (measureBufs). Âm file có `role` thì hệ số âm lượng = 10^((roleDb - độ to)/20), kẹp trong [gainMin, gainMax]; không đo được thì dùng `vol`.
+   jitterDb / pitch: lệch âm lượng ±dB và cao độ ±tỉ lệ mỗi lần phát. pan: lệch trái/phải ở mép màn hình.
+   stealAge: chỉ "cướp giọng" cũ nhất khi giọng đó đã phát quá bấy nhiêu giây (300 âm cùng khung không tạo 300 nguồn).
+   duck: [mức bus hiệu ứng, giây] khi phát âm quan trọng. music: lọc thông thấp nhạc (Hz) khi tạm dừng/chọn thẻ, khi máu thấp,
+   bình thường; pauseVol: hệ số âm lượng nhạc khi tạm dừng. heart: nhịp tim khi máu < on, chu kỳ từ slow (ở mức on) tới fast (sắp chết).
+   tier: theo bậc vũ khí (Phase 3; chỉ số 1..4) — hệ số cao độ (thấp = nặng hơn) và số lớp thêm (1 = thân trầm, 2 = thêm lấp lánh). */
+CFG.audio = {
+  limiter: { threshold: -8, knee: 0, ratio: 20, attack: 0.001, release: 0.15 }, post: 0.85,
+  roleDb: { frequent: -22, ui: -21, reward: -16, danger: -12 }, gainMin: 0.05, gainMax: 3,
+  jitterDb: 2, pitch: 0.05, pan: 0.6, stealAge: 0.04,
+  duck: { hurt: [0.45, 0.3], boss: [0.35, 1.2], level: [0.5, 0.5], bossdie: [0.5, 0.8], evolve: [0.5, 0.7], death: [0.4, 1], win: [0.4, 1.2] },
+  music: { lpPause: 650, lpLow: 2400, lpOpen: 20000, pauseVol: 0.6 },
+  heart: { on: 0.25, slow: 0.95, fast: 0.42, vol: 0.55 },
+  tier: { rate: [1, 1, 0.92, 0.84, 0.8], layer: [0, 0, 1, 2, 2] },
+};
+/* Âm báo trước kỹ năng boss (V5 Phase 6): mỗi kỹ năng một tiếng dâng riêng, kéo dài đúng thời gian báo trước,
+   để né được bằng tai. wave: dạng sóng; f0 → f1: cao độ đầu → cuối (Hz); vol; lfo: nhịp rung (Hz, 0 = không); end: tiếng chốt khi ra đòn. */
+const WINDUP_CUES = {
+  charge:   { wave: 'sawtooth', f0: 90,  f1: 260,  vol: 0.10, lfo: 0,  end: 'thud' },
+  quake:    { wave: 'sawtooth', f0: 70,  f1: 220,  vol: 0.11, lfo: 9,  end: 'thud' },
+  summon:   { wave: 'triangle', f0: 220, f1: 440,  vol: 0.10, lfo: 6,  end: 'chime' },
+  ring:     { wave: 'square',   f0: 330, f1: 660,  vol: 0.05, lfo: 0,  end: 'chime' },
+  rings:    { wave: 'square',   f0: 300, f1: 720,  vol: 0.05, lfo: 12, end: 'chime' },
+  wall:     { wave: 'square',   f0: 250, f1: 500,  vol: 0.05, lfo: 4,  end: 'chime' },
+  spiral:   { wave: 'triangle', f0: 400, f1: 1100, vol: 0.09, lfo: 14, end: 'chime' },
+  teleport: { wave: 'sine',     f0: 600, f1: 1600, vol: 0.10, lfo: 18, end: 'zip' },
+  slam:     { wave: 'sawtooth', f0: 55,  f1: 140,  vol: 0.13, lfo: 3,  end: 'thud' },
+  meteor:   { wave: 'sawtooth', f0: 900, f1: 180,  vol: 0.07, lfo: 0,  end: 'thud' },   // rơi xuống: cao → thấp
+  boulders: { wave: 'sawtooth', f0: 60,  f1: 160,  vol: 0.12, lfo: 5,  end: 'thud' },
+};
 CFG.toast = { gap: 1, life: 2.8, max: 3 }; // thông báo mốc bên phải màn hình: cách nhau ít nhất gap giây, tối đa max cái cùng lúc
 /* Thông báo mốc (không chặn chơi). test() đọc trạng thái ván; mỗi id chỉ hiện một lần mỗi ván. */
 const TOASTS = [
@@ -463,6 +511,7 @@ const BOOK = [
   { title: 'Quái',     keys: ['bat', 'slime', 'skeleton', 'ghost', 'golem', 'bomber', 'splitter', 'charger'] },
   { title: 'Boss',     keys: ['bossZombie', 'bossNecro', 'bossOgre', 'boss'] },
   { title: 'Vật phẩm', keys: ['potion', 'magnet', 'shield', 'speed', 'rage', 'bomb', 'freeze', 'xp2'] },
+  { title: 'Nhân vật', keys: ['wizard', 'knight', 'elf', 'lizard'].map(id => 'skin:' + id) },   // ghi khi vào ván bằng nhân vật đó
 ];
 CFG.attract = { enemies: 7, drift: 0.05, range: 260 };   // menu: số quái lang thang, tốc độ lia camera, bán kính vùng lia (đơn vị thế giới)
 

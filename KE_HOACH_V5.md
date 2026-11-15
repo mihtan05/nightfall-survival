@@ -15,12 +15,12 @@ Kế hoạch v5 cho "Đêm Sinh Tồn". Mỗi phase bên dưới là **một pro
 | 2 | Bóng đổ, vùng báo trước, nền, quái xuất hiện/chết | M | 1 | **xong** |
 | 3 | Vũ khí đổi hình theo cấp (nhìn là biết mạnh lên) | L | 1 | **xong** |
 | 4 | Cột mốc cấp 4/8 + thẻ nâng cấp hiện rõ lộ trình | M | 3 | **xong** |
-| 5 | Âm thanh: tìm nguồn CC0 trên web, lập danh sách xin duyệt | S | — | chưa làm |
-| 6 | Âm thanh: tải, trang nghe thử, phối âm | L | 5 + duyệt | chưa làm |
+| 5 | Âm thanh: tìm nguồn CC0 trên web, lập danh sách xin duyệt | S | — | **xong** |
+| 6 | Âm thanh: tải, trang nghe thử, phối âm | L | 5 + duyệt | **xong** |
 | 7 | Phần thưởng trong ván: combo, rương, mốc, hút ngọc | M | 2 | **xong** |
 | 8 | Màn kết thúc kéo người chơi vào ván sau | M | — | **xong** |
 | 9 | Nhiệm vụ, sổ tay sưu tầm, menu sống động | M | 8 | **xong** |
-| 10 | (Tuỳ chọn, cần tải) sprite riêng cho quái biến thể + nhân vật mới | M | 1 + duyệt | chưa làm |
+| 10 | (Tuỳ chọn, cần tải) sprite riêng cho quái biến thể + nhân vật mới | M | 1 + duyệt | **xong** |
 
 Nếu chỉ đủ thời gian cho vài phase: **1 → 3 → 4 → 6** cho hiệu quả nhìn/nghe thấy rõ nhất.
 

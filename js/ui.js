@@ -89,6 +89,10 @@ for (const [id, key, storeKey] of [['optMusic', 'musicVol', 'vs_music'], ['optSf
   });
 }
 // Công tắc rung màn hình (lưu lại cho lần chơi sau)
+for (const [id, key, sk] of [['optDmgNum', 'dmgNum', 'vs_dmgnum'], ['optNoFlash', 'noFlash', 'vs_noflash'], ['optClear', 'clear', 'vs_clear'], ['optBig', 'big', 'vs_big']]) {
+  $(id).checked = SETTINGS[key];
+  $(id).addEventListener('change', e => { SETTINGS[key] = e.target.checked; store.set(sk, SETTINGS[key]); uiScale(); });
+}
 $('optShake').checked = SETTINGS.shake;
 $('optShake').addEventListener('change', e => { SETTINGS.shake = e.target.checked; store.set('vs_shake', SETTINGS.shake); if (!SETTINGS.shake) G.shake = 0; });
 $('pauseBtn').addEventListener('click', togglePause);
@@ -118,6 +122,7 @@ function frame(now) {
   if (dt > 0.25) dt = 0.25;
   // C1: logic, vẽ và HUD bọc riêng — một lỗi ở phần này không làm đứng phần kia; lỗi hiện hộp báo (reportError, util.js)
   try {
+    pollPad();
     // Boss xuất hiện: dừng logic (chỉ hạt/hiệu ứng chạy), viền đen điện ảnh. Ở đây chứ không trong update()
     // để __vs.tick / runChecks / runBot không bị ảnh hưởng.
     const cine = G.state === 'play' && !!G.cine && G.cine.t > 0;

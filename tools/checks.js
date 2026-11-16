@@ -63,7 +63,8 @@ window.runChecks = async function () {
   const ku = (code, key = 'x') => dispatchEvent(new KeyboardEvent('keyup', { code, key }));
   const wait = ms => new Promise(r => setTimeout(r, ms));
   // Giữ nguyên tiến trình thật của người chơi: sao lưu META + localStorage, trả lại ở cuối
-  const metaAll = JSON.stringify(META), lsKeys = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_stat', 'vs_stat_nm', 'vs_start'], lsAll = lsKeys.map(k => [k, localStorage.getItem(k)]);
+  const metaAll = JSON.stringify(META), lsKeys = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_best_easy', 'vs_stat', 'vs_stat_nm', 'vs_stat_easy', 'vs_start', 'vs_clear'], lsAll = lsKeys.map(k => [k, localStorage.getItem(k)]);
+  const easyBak = SETUP.easy; SETUP.easy = false;   // mức Dễ đang bật ở menu không được làm lệch số đo
   CFG.hints.on = false;   // gợi ý ván đầu (C4) không chen vào hàng thông báo của các tiêu chí khác; V6-6 gọi checkHints trực tiếp
   const fresh = () => { ['over', 'levelup', 'paused', 'menu'].forEach(id => document.getElementById(id).classList.remove('show')); startGame(); G.enemies.clear(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9; };
 
@@ -511,7 +512,55 @@ window.runChecks = async function () {
     ok('V6-7', '7.1 Ngoại tuyến: service worker đã đăng ký, kho lưu có trang + js + css + atlas; manifest có tên và 2 icon',
       sw && got.length === 4 && got.every(Boolean) && man && man.name === 'Nightfall: Survival' && man.icons.length === 2, `worker ${!!sw}, kho ${got.map(x => +x).join('')}, manifest ${man ? man.name : 'thiếu'}`);
   }
+  { // ---- V6-8 (C5): tay cầm giả lập + cài đặt mở từ menu ----
+    const gp = { connected: true, axes: [0, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false })) };
+    navigator.getGamepads = () => [gp];
+    const press = i => { gp.buttons[i].pressed = true; pollPad(); gp.buttons[i].pressed = false; pollPad(); };
+    ['over', 'levelup', 'paused'].forEach(id => document.getElementById(id).classList.remove('show'));
+    G.state = 'menu'; renderMenu(); show('menu', true); if (document.activeElement) document.activeElement.blur(); pollPad();
+    press(0); const focStart = document.activeElement && document.activeElement.id === 'startBtn'; press(0); const started = G.state === 'play';
+    G.enemies.clear(); P().hp = P().maxHp = 1e6; G.xpNeed = 1e9;
+    gp.axes[0] = 1; pollPad(); const x0 = P().x; v.tick(0.5); const moved = P().x - x0; gp.axes[0] = 0; pollPad();
+    const d0 = G.stats.dashes; press(0); const dashed = G.stats.dashes - d0;
+    press(9); const paused = G.state === 'paused'; press(9); const resumed = G.state === 'play';
+    G.pending = 1; openLevelUp(); if (document.activeElement) document.activeElement.blur();
+    press(15); press(15); const cards = [...document.querySelectorAll('#levelup .card')], foc = cards.indexOf(document.activeElement);
+    await wait(Math.max(0, cardLockUntil - performance.now()) + 30);   // thẻ khoá bấm một nhịp sau khi hiện (chống bấm nhầm)
+    press(0); const picked = G.pending === 0;
+    show('levelup', false); G.state = 'menu'; show('menu', true);
+    openSettings(true); const inSet = $('optBox').parentNode.id === 'setBody'; const c0 = SETTINGS.clear;
+    $('optClear').click(); const togg = SETTINGS.clear === !c0 && store.get('vs_clear', null) === !c0; $('optClear').click();
+    openSettings(false); const back = $('optBox').closest('#paused') !== null;
+    delete navigator.getGamepads; pollPad();
+    ok('V6-8', '8.1 Tay cầm: A ở menu chọn rồi bấm "Bắt đầu", cần trái di chuyển, A lướt, Start tạm dừng/chơi tiếp, D-pad + A chọn thẻ thứ 2; Cài đặt mở từ menu, đổi là lưu, đóng thì trả về bảng tạm dừng',
+      focStart && started && moved > 20 && dashed === 1 && paused && resumed && foc === 1 && picked && inSet && togg && back,
+      `focus ${focStart}, vào ván ${started}, đi ${moved.toFixed(0)}, lướt ${dashed}, dừng ${paused}/${resumed}, thẻ ${foc}, chọn ${picked}, cài đặt ${inSet}/${togg}/${back}`);
+  }
+  { // ---- V6-9 (C6): vô tận — đợt 5–8 mỗi đợt một luật ----
+    fresh(); G.won = true; continueEndless(); G.enemies.clear();
+    const names = [4, 5, 6, 7].map(i => waveDef(i).name), cyc = waveDef(8).name === names[0];
+    const fast = spawnEnemy('bat').speed / ENEMIES.bat.speed;
+    const elites = waveDef(5).elites.length, giant = !!waveDef(7).mix[0].mix.golem && waveDef(7).rate[1] < WAVE_DEFS[3].rate[1];
+    showWaveCard(5); const card = document.querySelector('#waveCard b').textContent;
+    G.enemies.clear(); G.wave = { i: 6, phase: 'fight', t: waveDef(6).dur - 0.05, evIdx: 99, announced: true, warned: true }; v.tick(0.1);
+    const bs = G.enemies.items.filter(e => e.boss), two = bs.length === 2 && bs[0].type !== bs[1].type && G.boss === bs[1];
+    const hpOk = bs.length === 2 && Math.abs(bs[0].maxHp - ENEMIES[bs[0].type].hp * CFG.endless.hp ** 3 * 0.6) < 1;
+    G.enemies.clear(); G.boss = null; G.cine = null;
+    ok('V6-9', '9.1 Vô tận: đợt 5–8 bốn luật khác nhau rồi xoay vòng — quái nhanh ×1.35, tinh anh dày, 2 boss (máu ×0.6), quái to thưa; thẻ đợt hiện tên luật',
+      new Set(names).size === 4 && cyc && fast >= 1.35 * 0.9 - 1e-9 && elites >= 5 && giant && card === names[1] && two && hpOk,
+      `${names.join(' / ')}; xoay vòng ${cyc}; dơi ×${fast.toFixed(2)}; tinh anh ${elites}; khổng lồ ${giant}; thẻ "${card}"; 2 boss ${two}, máu ${hpOk}`);
+  }
+  { // ---- V6-10: mức Dễ (B14) + âm lượng hiệu ứng chung ----
+    SETUP.easy = false; const hpN = newPlayer().maxHp; fresh(); const dN = spawnEnemy('skeleton').dmg, sN = spawnEnemy('skeleton').speed / 1; G.kills = 300; const soulN = runSouls();
+    SETUP.easy = true; const hpE = newPlayer().maxHp, key = bestKey(); fresh(); const dE = spawnEnemy('skeleton').dmg; G.kills = 300; const soulE = runSouls();
+    SETUP.easy = false; fresh();
+    SFX.applyVolumes(); await wait(200); const sg = SFX.sfxGain ? SFX.sfxGain.gain.value : -1, want = SETTINGS.sfxVol * CFG.audio.sfxTrim;
+    ok('V6-10', '10.1 Mức Dễ: máu ×1.3, sát thương quái ×0.8, linh hồn ×0.75, kỷ lục riêng; âm lượng hiệu ứng = thanh trượt × sfxTrim (< 1)',
+      hpE === Math.round(hpN * CFG.easy.hp) && Math.abs(dE / dN - CFG.easy.dmg) < 1e-6 && soulE === Math.floor(soulN * CFG.easy.souls) && key === 'vs_best_easy' && CFG.audio.sfxTrim < 1 && Math.abs(sg - want) < 0.02,
+      `máu ${hpN} → ${hpE}, dmg ×${(dE / dN).toFixed(2)}, linh hồn ${soulN} → ${soulE}, khoá ${key}, hiệu ứng ${sg.toFixed(2)} (cần ${want.toFixed(2)})`);
+  }
   CFG.hints.on = true;
+  SETUP.easy = easyBak;
   for (const k of Object.keys(META)) delete META[k];
   Object.assign(META, JSON.parse(metaAll));
   for (const [k, val] of lsAll) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);

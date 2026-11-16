@@ -118,7 +118,7 @@ const SFX = {
   applyVolumes() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, M = CFG.audio.music;
-    this.sfxGain.gain.setTargetAtTime(SETTINGS.sfxVol, t, 0.02);
+    this.sfxGain.gain.setTargetAtTime(SETTINGS.sfxVol * CFG.audio.sfxTrim, t, 0.02);
     this.musicGain.gain.setTargetAtTime(SETTINGS.musicVol * (this.ducked ? M.pauseVol : 1), t, 0.15);
     // Tạm dừng / chọn thẻ: lọc trầm nhạc (nghe như vọng từ xa); máu thấp: lọc nhẹ; bình thường: mở hết
     this.musicLP.frequency.setTargetAtTime(this.ducked ? M.lpPause : this.lowMix ? M.lpLow : M.lpOpen, t, 0.12);

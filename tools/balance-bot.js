@@ -66,6 +66,8 @@ window.runBot = function (opts = {}) {
       if (G.boss && G.boss !== lastBoss) { lastBoss = G.boss; bossStart = G.t; rec.bosses.push({ type: G.boss.type, at: Math.round(G.t), lvl: G.level, hp: Math.round(G.boss.maxHp) }); }
       if (lastBoss && lastBoss.dead && rec.bosses.length && rec.bosses[rec.bosses.length - 1].killedIn === undefined) rec.bosses[rec.bosses.length - 1].killedIn = Math.round(G.t - bossStart);
       if (s % (60 * react) === 60 * react - 1) rec.levelByMin.push(G.level);
+      if (opts.endless && G.state === 'over' && G.won) { clearTimeout(overTimer); continueEndless(); }   // C6: thắng thì chơi tiếp vô tận
+      if (opts.stopWave && G.wave.i >= opts.stopWave) break;                                             // dừng khi tới đợt (chỉ số từ 0)
       if (G.state !== 'play') break;
     }
   } finally { setKeys([]); window.hurtPlayer = origHurt; }

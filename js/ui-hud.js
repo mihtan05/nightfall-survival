@@ -10,7 +10,7 @@ const ui = {
   ownedW: $('ownedW'), ownedP: $('ownedP'), buffs: $('buffs'), fps: $('fps'), bossbar: $('bossbar'), bossfill: $('bossfill'), bossghost: $('bossghost'), banner: $('banner'), waveBar: $('waveFill'),
 };
 // C2: HUD co giãn: hệ số --ui theo màn (1280×720 = 1), không nhỏ hơn 1 (điện thoại giữ nguyên), tối đa 2
-function uiScale() { document.documentElement.style.setProperty('--ui', clamp(Math.min(innerHeight / 720, innerWidth / 1280), 1, 2).toFixed(3)); }
+function uiScale() { document.documentElement.style.setProperty('--ui', (clamp(Math.min(innerHeight / 720, innerWidth / 1280), 1, 2) * (SETTINGS.big ? 1.2 : 1)).toFixed(3)); }
 uiScale(); addEventListener('resize', uiScale);
 const ITEM_BUFFS = ['shield', 'speed', 'rage', 'xp2'];
 let hudCache = '', buffCache = '', dashCache = -1;
@@ -131,7 +131,7 @@ let waveCardFor = -1;
 function showWaveCard(i) {
   const c = $('waveCard');
   c.querySelector('span').textContent = `ĐỢT ${waveLabel(i)} SẮP ĐẾN`;
-  c.querySelector('b').textContent = i < WAVE_DEFS.length && !G.endless ? WAVE_DEFS[i].name : 'Đêm vô tận';
+  c.querySelector('b').textContent = waveDef(i).name;
   c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
 }
 /* Nghi thức mở rương: chạy trong frame() (không trong update), thế giới đứng yên vì đang ở trạng thái 'levelup'.
@@ -219,9 +219,10 @@ function banner(text, sub) {
 }
 function updateMuteBtn() { setIcon($('muteBtn'), SFX.muted ? 'ui_mute' : 'ui_sound', SFX.muted ? '×' : '♪'); }
 function show(id, on) { $(id).classList.toggle('show', on); }
-const bestKey = () => SETUP.nm ? 'vs_best_nm' : 'vs_best';
+const modeSfx = m => m.nm ? '_nm' : m.easy ? '_easy' : '';   // hậu tố khoá kỷ lục theo mức chơi (m = SETUP hoặc G)
+const bestKey = () => 'vs_best' + modeSfx(SETUP);
 function updateBestTxt() {
   const b = store.get(bestKey(), { time: 0 });
   const wv = b.wave > WAVE_DEFS.length ? `vô tận đến đợt ${b.wave}` : b.won ? 'chiến thắng' : `đợt ${b.wave || 1}`;
-  $('bestTxt').textContent = b.time > 0 ? `Kỷ lục${SETUP.nm ? ' Ác mộng' : ''}: ${wv} · ${fmtTime(b.time)} · cấp ${b.level} · ${b.kills} quái` : '';
+  $('bestTxt').textContent = b.time > 0 ? `Kỷ lục${SETUP.nm ? ' Ác mộng' : SETUP.easy ? ' Dễ' : ''}: ${wv} · ${fmtTime(b.time)} · cấp ${b.level} · ${b.kills} quái` : '';
 }

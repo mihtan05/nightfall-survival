@@ -33,7 +33,8 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   if (cere.on) { e.preventDefault(); endCere(); return; } // mở rương: phím bất kỳ để bỏ qua
   if (endPanelKey(code)) { e.preventDefault(); return; }   // màn kết thúc: khoá phím lúc đầu, hiện hết, chơi lại (R / Enter / Space)
-  if (code === 'Escape' && metaOpen()) openMeta(false);
+  if (code === 'Escape' && setOpen()) openSettings(false);
+  else if (code === 'Escape' && metaOpen()) openMeta(false);
   else if (code === 'Escape' && bookOpen()) openBook(false);
   else if (code === 'Escape' || code === 'KeyP') togglePause();
   else if (code === 'KeyM') SFX.toggle();
@@ -41,7 +42,7 @@ addEventListener('keydown', e => {
   else if (G.state === 'levelup' && /^(Digit|Numpad)[123]$/.test(code)) { const u = G.choices[+code.slice(-1) - 1]; if (u) choose(u); }
   else if ((code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') && G.state === 'play') tryDash();
   else if (G.state === 'levelup' && code === 'KeyR') reroll();
-  else if (G.state === 'menu' && !metaOpen() && !bookOpen() && (code === 'Enter' || code === 'Space' || code === 'NumpadEnter')) startGame();
+  else if (G.state === 'menu' && !metaOpen() && !bookOpen() && !setOpen() && (code === 'Enter' || code === 'Space' || code === 'NumpadEnter')) startGame();
 });
 addEventListener('keyup', e => held.delete(keyCode(e)));
 // Mất focus thì trình duyệt không gửi keyup: phải xả phím để không bị "kẹt" chạy một hướng.
@@ -75,6 +76,42 @@ for (const t of [window, cv]) {
 }
 cv.addEventListener('lostpointercapture', e => { if (e.pointerId === joy.id) endJoy(); });
 
+/* Tay cầm (C5, B18) — gọi mỗi khung từ frame(). Trong ván: cần trái / D-pad di chuyển, A lướt, Start tạm dừng.
+   Ngoài ván: D-pad / cần chuyển focus giữa các nút của bảng trên cùng, A bấm nút đang focus (chưa focus thì chọn nút mặc định),
+   B = Esc, X = đổi thẻ, màn kết thúc A = Enter (đi qua endPanelKey). Thanh trượt âm lượng chưa chỉnh được bằng tay cầm. */
+const pad = { dx: 0, dy: 0, was: [], nav: 0 };
+function padKey(code) { dispatchEvent(new KeyboardEvent('keydown', { code })); dispatchEvent(new KeyboardEvent('keyup', { code })); }
+// Chuyển focus trong bảng trên cùng; trả về phần tử ĐANG focus từ trước (null nếu lần này mới đặt focus)
+function padFocus(step) {
+  const tops = document.querySelectorAll('.overlay.show'), top = tops[tops.length - 1]; if (!top) return null;
+  const els = [...top.querySelectorAll('button:not([disabled]), input')].filter(e => e.getClientRects().length), i = els.indexOf(document.activeElement);
+  const el = i < 0 ? top.querySelector('.card, #startBtn, #resumeBtn') || els[0] : els[(i + step + els.length) % els.length];
+  if (el) el.focus();
+  return i < 0 ? null : el;
+}
+function pollPad() {
+  const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g && g.connected) : null;
+  if (!gp) { pad.dx = pad.dy = 0; return; }
+  const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), hit = i => b(i) && !pad.was[i], D = CFG.pad.dead;
+  const x = (b(15) ? 1 : 0) - (b(14) ? 1 : 0) + (Math.abs(gp.axes[0]) > D ? gp.axes[0] : 0), y = (b(13) ? 1 : 0) - (b(12) ? 1 : 0) + (Math.abs(gp.axes[1]) > D ? gp.axes[1] : 0);
+  const play = G.state === 'play' && !cere.on;
+  pad.dx = play ? x : 0; pad.dy = play ? y : 0;
+  if (hit(9)) padKey('Escape');
+  if (play) { if (hit(0)) tryDash(); }
+  else {
+    const nav = Math.abs(x) > 0.5 || Math.abs(y) > 0.5 ? (Math.abs(x) > Math.abs(y) ? Math.sign(x) : Math.sign(y)) : 0;
+    if (nav && nav !== pad.nav) padFocus(nav);
+    pad.nav = nav;
+    if (hit(0)) {
+      if (cere.on || G.state === 'over') padKey('Enter');
+      else { const el = padFocus(0); if (el) { el.click(); if (el.isConnected) el.focus(); } }
+    }
+    if (hit(1)) padKey('Escape');
+    if (hit(2)) padKey('KeyR');
+  }
+  for (let i = 0; i < 16; i++) pad.was[i] = b(i);
+}
+
 // Lấy hướng mới bấm nhất trong một trục (0 nếu không giữ phím nào)
 function axis(negDir, posDir) {
   let negSeq = 0, posSeq = 0;
@@ -89,6 +126,7 @@ const iv = { x: 0, y: 0 }; // dùng lại mỗi bước, không tạo rác
 function inputVec() {
   let x = axis('left', 'right'), y = axis('up', 'down');
   if (joy.active) { x += joy.dx; y += joy.dy; }
+  x += pad.dx; y += pad.dy;
   const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
   iv.x = x; iv.y = y;
   return iv;

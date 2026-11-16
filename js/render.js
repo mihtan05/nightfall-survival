@@ -824,6 +824,7 @@ function teleImg(name) {
 }
 // Quầng sáng mềm sau lưng boss khi tụ lực (thay cho đĩa màu phẳng)
 function teleGlow(name, x, y, R, alpha) {
+  if (SETTINGS.clear) { R *= 1.35; alpha *= 1.6; }   // Dễ nhìn: quầng báo trước của boss to và đậm hơn (Q-010)
   ctx.globalAlpha = clamp(alpha, 0, 1); ctx.drawImage(glowImg(name), x - R, y - R, R * 2, R * 2); ctx.globalAlpha = 1;
 }
 // Boss: quầng đỏ nhấp nháy sau lưng trước khi bắn vòng đạn. Pháp sư tử linh: quả cầu tím lớn dần trên đầu.
@@ -876,11 +877,13 @@ function drawZones() {
     if (hot > 0) { ctx.fillStyle = `rgba(255,255,255,${0.3 * hot})`; circle(ctx, z.x, z.y, r); }
     ctx.strokeStyle = hot > 0 ? '#ffffff' : 'rgba(255,100,100,0.9)';
     ctx.beginPath(); ctx.arc(z.x, z.y, r, 0, TAU); ctx.stroke();
+    if (SETTINGS.clear) { ctx.save(); ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(z.x, z.y, r + 1.5, 0, TAU); ctx.stroke(); ctx.restore(); }   // Dễ nhìn: viền trắng liền, không dựa vào màu đỏ
   }
   ctx.setLineDash([]);
 }
 // Hiệu ứng tạm thời quanh người chơi: khiên phép (vòng xanh + số đòn còn chặn), cuồng nộ (quầng đỏ)
 function drawPlayerBuffs(p) {
+  if (SETTINGS.clear) { ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y + 2, p.r + 6, 0, TAU); ctx.stroke(); }   // Dễ nhìn: vòng sáng quanh nhân vật (Q-013)
   if (p.buffs.rage > 0) { ctx.fillStyle = `rgba(255,90,50,${0.16 + 0.08 * Math.sin(G.t * 12)})`; circle(ctx, p.x, p.y + 2, p.r + 7); }
   if (p.buffs.shield > 0 && p.shieldHits > 0) {
     const fading = p.buffs.shield < 3 && Math.floor(G.t * 8) % 2;
@@ -1167,6 +1170,6 @@ function renderScene() {
   drawVignette(p.hurtT);
   drawMotes(camX, camY);
   if (G.freezeT > 0) { ctx.fillStyle = 'rgba(150,210,255,0.08)'; ctx.fillRect(0, 0, W, H); }
-  if (G.flashT > 0) { ctx.globalAlpha = Math.min(1, G.flashT / 0.35) * 0.6; ctx.fillStyle = G.flashColor; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
-  if (G.zapFlash > 0) { ctx.globalAlpha = G.zapFlashA * G.zapFlash / 0.1; ctx.fillStyle = '#dff4ff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; } // Lôi Phạt bậc 3: loé rất nhẹ
+  if (G.flashT > 0) { ctx.globalAlpha = Math.min(1, G.flashT / 0.35) * (SETTINGS.noFlash ? 0.15 : 0.6); ctx.fillStyle = G.flashColor; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+  if (G.zapFlash > 0 && !SETTINGS.noFlash) { ctx.globalAlpha = G.zapFlashA * G.zapFlash / 0.1; ctx.fillStyle = '#dff4ff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; } // Lôi Phạt bậc 3: loé rất nhẹ
 }

@@ -12,10 +12,10 @@ function endRun(won) {
   // xếp hạng: thắng > đợt xa hơn > sống lâu hơn
   const score = r => (r.won ? 1e7 : 0) + (r.wave || 1) * 1e5 + r.time;
   const run = { time: G.t, kills: G.kills, level: G.level, wave, won: won || G.endless };
-  const key = G.nm ? 'vs_best_nm' : 'vs_best', prev = store.get(key, { time: 0 });
+  const key = 'vs_best' + modeSfx(G), prev = store.get(key, { time: 0 });
   const newBest = score(run) > score(prev);
   renderStatBests(run);   // trước khi ghi vs_best (lần đầu kỷ lục từng chỉ số lấy từ vs_best cũ)
-  if (newBest) { store.set(key, run); if (!G.nm) G.best = run; }
+  if (newBest) { store.set(key, run); if (!G.nm && !G.easy) G.best = run; }
   checkMissions();
   const { gain, fresh } = grantMeta(); lastFresh = fresh; showSouls(gain, fresh, true);
   $('overTitle').textContent = won ? 'Bạn đã đánh bại Chúa Tể Bóng Đêm!' : G.endless ? `Gục ngã ở đợt ${wave} (vô tận)` : 'Bạn đã gục ngã';
@@ -35,10 +35,10 @@ function endRun(won) {
 
 /* ---------- V5 Phase 8: màn kết thúc kéo vào ván sau ---------- */
 let overTimer = 0, overShownAt = Infinity, stageTimers = [], staging = false;
-const statKey = () => G.nm ? 'vs_stat_nm' : 'vs_stat';
+const statKey = () => 'vs_stat' + modeSfx(G);
 // Kỷ lục từng chỉ số (đợt, thời gian, cấp, quái): hiện kỷ lục cũ bên cạnh + nhãn KỶ LỤC khi vượt; lưu cạnh vs_best / vs_best_nm
 function renderStatBests(run) {
-  const seed = store.get(G.nm ? 'vs_best_nm' : 'vs_best', {});  // lần đầu: lấy từ kỷ lục cả ván đã có
+  const seed = store.get('vs_best' + modeSfx(G), {});  // lần đầu: lấy từ kỷ lục cả ván đã có
   const prev = store.get(statKey(), null) || { wave: seed.wave || 0, time: seed.time || 0, level: seed.level || 0, kills: seed.kills || 0 };
   const rows = [['sWave', 'wave', v => v > WAVE_DEFS.length ? 'đợt ' + v : 'đợt ' + v], ['sTime', 'time', fmtTime], ['sLvl', 'level', v => 'cấp ' + v], ['sKills', 'kills', v => v + ' quái']];
   const next = { ...prev };

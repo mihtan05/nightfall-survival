@@ -47,7 +47,11 @@ const CFG = {
 
 // Cài đặt người chơi (lưu localStorage)
 const SETTINGS = {
-  shake: store.get('vs_shake', true),
+  shake: store.get('vs_shake', !matchMedia('(prefers-reduced-motion: reduce)').matches),   // mặc định theo hệ thống (Q-016), người chơi bật lại được
+  dmgNum: store.get('vs_dmgnum', true),  // số sát thương bay
+  noFlash: store.get('vs_noflash', false), // giảm loé màn
+  clear: store.get('vs_clear', false),   // dễ nhìn: vùng nguy hiểm viền trắng đậm, vòng sáng quanh nhân vật
+  big: store.get('vs_big', false),       // chữ HUD lớn
   musicVol: store.get('vs_music', 0.6),  // 0..1
   sfxVol: store.get('vs_sfx', 0.8),      // 0..1
 };
@@ -448,6 +452,7 @@ CFG.lowHp = { on: 0.25, off: 0.4 }; // viền đỏ + thanh máu run khi máu < 
    bình thường; pauseVol: hệ số âm lượng nhạc khi tạm dừng. heart: nhịp tim khi máu < on, chu kỳ từ slow (ở mức on) tới fast (sắp chết).
    tier: theo bậc vũ khí (Phase 3; chỉ số 1..4) — hệ số cao độ (thấp = nặng hơn) và số lớp thêm (1 = thân trầm, 2 = thêm lấp lánh). */
 CFG.audio = {
+  sfxTrim: 0.6,   // hệ số chung cho mọi hiệu ứng (nhân với thanh âm lượng): người dùng thấy hiệu ứng quá to so với nhạc
   limiter: { threshold: -8, knee: 0, ratio: 20, attack: 0.001, release: 0.15 }, post: 0.85,
   roleDb: { frequent: -22, ui: -21, reward: -16, danger: -12 }, gainMin: 0.05, gainMax: 3,
   jitterDb: 2, pitch: 0.05, pan: 0.6, stealAge: 0.04,
@@ -539,7 +544,16 @@ const EVOLUTIONS = {
 CFG.souls = { perKills: 15, boss: 30, win: 100, countUp: 0.8 };   // C3: 25 → 15 quái mỗi linh hồn
 CFG.metaCost = [30, 80, 140, 220, 320];   // C3: bậc đầu 40 → 30
 CFG.nightmare = { hp: 1.5, dmg: 1.3, rate: 1.25, souls: 1.5 };
-CFG.endless = { rate: 0.15, hp: 1.5 };       // đợt vô tận thứ n: mật độ ×(1+0.15n), máu quái ×1.5^n
+CFG.easy = { hp: 1.3, speed: 0.88, dmg: 0.8, souls: 0.75 };   // mức Dễ (B14): máu người chơi ×, tốc độ + sát thương quái ×, linh hồn ×
+CFG.pad = { dead: 0.25 };   // tay cầm: vùng chết của cần
+// Vô tận (C6): mỗi đợt một luật, xoay vòng 4 luật. rate: nhân mật độ; mix: thay thành phần quái; speed: nhân tốc độ quái thường;
+// eliteEvery: tinh anh mỗi n giây; bosses + bossHp: số boss cuối đợt và hệ số máu mỗi con.
+CFG.endless = { rate: 0.15, hp: 1.5, rules: [
+  { name: 'Bầy đàn thần tốc', speed: 1.35, mix: { bat: 5, skeleton: 3, ghost: 1 } },
+  { name: 'Đêm tinh anh', rate: 0.6, eliteEvery: 12 },
+  { name: 'Song sát', bosses: 2, bossHp: 0.6 },
+  { name: 'Đêm khổng lồ', rate: 0.55, mix: { golem: 4, splitter: 2, charger: 2, skeleton: 2 } },
+] };       // đợt vô tận thứ n: mật độ ×(1+0.15n), máu quái ×1.5^n
 // Nâng cấp vĩnh viễn (5 cấp mỗi loại), áp dụng trong newPlayer()
 const META_UPGRADES = [
   { id: 'hp',   name: 'Sinh lực',   icon: 'vital',  glyph: '♥', desc: l => `+${8 * l} máu tối đa` },

@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <script>
   // PHIÊN BẢN: đổi MỘT chỗ này sau mỗi lần sửa JS/CSS (thêm ?v=… vào mọi file để trình duyệt không dùng bản cũ)
-  window.VER = 'v6k';
+  window.VER = 'v6l';
   document.write('<link rel="stylesheet" href="css/game.css?v=' + VER + '">');
 </script>
 </head>
@@ -60,11 +60,20 @@
     <p class="sub hint" id="startHint" aria-live="polite"></p>
     <div class="startpick" id="skinPick" role="radiogroup" aria-label="Nhân vật"></div>
     <p class="sub hint" id="skinHint" aria-live="polite"></p>
+    <label class="nmtoggle easy" id="easyWrap"><input type="checkbox" id="optEasy"> <span>Dễ</span> <small>máu ×1.3 · quái chậm và yếu hơn · linh hồn ×0.75</small></label>
     <label class="nmtoggle" id="nmWrap" hidden><input type="checkbox" id="optNm"> <span>Ác mộng</span> <small>quái máu ×1.5 · sát thương ×1.3 · linh hồn ×1.5</small></label>
-    <div class="menubtns"><button class="btn" id="startBtn">Bắt đầu</button><button class="btn ghost" id="metaBtn">Nâng cấp vĩnh viễn</button><button class="btn ghost" id="bookBtn">Sổ tay</button></div>
+    <div class="menubtns"><button class="btn" id="startBtn">Bắt đầu</button><button class="btn ghost" id="metaBtn">Nâng cấp vĩnh viễn</button><button class="btn ghost" id="bookBtn">Sổ tay</button><button class="btn ghost" id="setBtn">Cài đặt</button></div>
     <p class="sub souls" id="soulTxt"></p>
     <div class="missions" id="mList" aria-label="Nhiệm vụ"></div>
     <p class="sub" id="bestTxt" style="margin-bottom:0"></p>
+  </div>
+</div>
+
+<div class="overlay" id="settings">
+  <div class="panel">
+    <h2>Cài đặt</h2>
+    <div id="setBody"></div>
+    <div class="menubtns"><button class="btn ghost" id="setBack">Quay lại</button></div>
   </div>
 </div>
 
@@ -114,10 +123,14 @@
       <section><h3>Chỉ số</h3><dl id="pStats" class="statlist"></dl></section>
       <section class="wide"><h3>Nhiệm vụ</h3><div id="pMissions" class="missions"></div></section>
       <section class="wide"><div id="pDmg" class="dmglist"></div></section>
-      <section><h3>Cài đặt</h3>
+      <section id="optBox"><h3>Cài đặt</h3>
         <label class="opt vol">Nhạc <input type="range" id="optMusic" min="0" max="100" step="5"> <output id="optMusicV"></output></label>
         <label class="opt vol">Hiệu ứng <input type="range" id="optSfx" min="0" max="100" step="5"> <output id="optSfxV"></output></label>
         <label class="opt"><input type="checkbox" id="optShake"> Rung màn hình</label>
+        <label class="opt"><input type="checkbox" id="optDmgNum"> Số sát thương</label>
+        <label class="opt"><input type="checkbox" id="optNoFlash"> Giảm loé màn</label>
+        <label class="opt"><input type="checkbox" id="optClear"> Dễ nhìn (viền trắng vùng nguy hiểm)</label>
+        <label class="opt"><input type="checkbox" id="optBig"> Chữ lớn</label>
       </section>
     </div>
     <button class="btn" id="resumeBtn">Chơi tiếp</button>

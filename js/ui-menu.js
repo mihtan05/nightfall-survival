@@ -86,13 +86,22 @@ const metaOpen = () => $('meta').classList.contains('show');
 function openMeta(on) { if (!on && $('meta').classList.contains('show')) SFX.play('back'); if (on) renderMeta(); show('meta', on); (on ? $('metaBack') : $('metaBtn')).focus(); }
 $('metaBtn').addEventListener('click', () => openMeta(true));
 $('metaBack').addEventListener('click', () => openMeta(false));
-$('optNm').addEventListener('change', e => { SETUP.nm = e.target.checked; updateBestTxt(); });
+$('optNm').addEventListener('change', e => { SETUP.nm = e.target.checked; if (SETUP.nm) setEasy(false); updateBestTxt(); });
+// Mức Dễ (B14): lưu lựa chọn; không đi cùng Ác mộng; kỷ lục riêng (vs_best_easy)
+function setEasy(on) { SETUP.easy = on; store.set('vs_easy', on); $('optEasy').checked = on; if (on) { SETUP.nm = false; $('optNm').checked = false; } updateBestTxt(); }
+$('optEasy').checked = SETUP.easy;
+$('optEasy').addEventListener('change', e => setEasy(e.target.checked));
+// Cài đặt mở từ menu (B9): dùng chung khối #optBox với bảng tạm dừng — mượn sang rồi trả về chỗ cũ khi đóng
+const optHome = $('optBox').parentNode, setOpen = () => $('settings').classList.contains('show');
+function openSettings(on) { if (!on && setOpen()) SFX.play('back'); (on ? $('setBody') : optHome).append($('optBox')); show('settings', on); (on ? $('setBack') : $('setBtn')).focus(); }
+$('setBtn').addEventListener('click', () => openSettings(true));
+$('setBack').addEventListener('click', () => openSettings(false));
 function toMenu() { ['over', 'paused', 'levelup', 'book'].forEach(id => show(id, false)); G.state = 'menu'; renderMenu(); show('menu', true); }
 
 /* ---------- Linh hồn + mở khoá khi kết thúc ván ---------- */
 function runSouls() {
   const s = Math.floor(G.kills / CFG.souls.perKills) + CFG.souls.boss * G.bossKills + (G.won || G.endless ? CFG.souls.win : 0);
-  return Math.floor(s * (G.nm ? CFG.nightmare.souls : 1));
+  return Math.floor(s * (G.nm ? CFG.nightmare.souls : G.easy ? CFG.easy.souls : 1));
 }
 function grantMeta() {
   const total = runSouls(), gain = total - G.soulsGiven;   // vô tận: chỉ cộng phần chênh so với lần trao trước

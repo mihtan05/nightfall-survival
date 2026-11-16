@@ -51,7 +51,7 @@ function bookAdd(key) {
 }
 const saveMeta = () => store.set('vs_meta', META);
 const metaLv = id => META.up[id] || 0;
-const SETUP = { start: store.get('vs_start', 'bolt'), nm: false, skin: store.get('vs_skin', 'wizard') };   // lựa chọn ở menu cho ván tiếp theo
+const SETUP = { start: store.get('vs_start', 'bolt'), nm: false, easy: store.get('vs_easy', false), skin: store.get('vs_skin', 'wizard') };   // lựa chọn ở menu cho ván tiếp theo
 if (!META.unlocked.includes(SETUP.start)) SETUP.start = 'bolt';
 if (!SKINS[SETUP.skin] || !META.skins.includes(SETUP.skin)) SETUP.skin = 'wizard';
 // Đổi hình người chơi theo nhân vật đã chọn (chỉ hình; thiếu ảnh thì vẫn vẽ SHAPES.player)
@@ -79,7 +79,7 @@ function addDecal(kind, x, y, r, life) {
 }
 function updateDecals(dt) { const D = G.decals; for (let i = D.length - 1; i >= 0; i--) if ((D[i].life -= dt) <= 0) D.splice(i, 1); }
 function newPlayer(start = 'bolt') {
-  const hp = CFG.player.hp + 8 * metaLv('hp');
+  const hp = Math.round((CFG.player.hp + 8 * metaLv('hp')) * (SETUP.easy && !SETUP.nm ? CFG.easy.hp : 1));
   return {
     x: 0, y: 0, r: CFG.player.radius, hp, maxHp: hp,
     speed: CFG.player.speed * (1 + 0.03 * metaLv('spd')), magnet: CFG.player.magnet * (1 + 0.1 * metaLv('mag')),
@@ -104,7 +104,7 @@ function resetWorld() {
     freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0,
     cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1, rerolls: CFG.rerolls + metaRoll(metaLv('roll')).rerolls,
     stats: newStats({ [SETUP.start]: 0 }), bookNew: [], bookSeen: Object.fromEntries(META.book.map(k => [k, true])), misDone: [], freshSkins: [],
-    nm: SETUP.nm, endless: false, bossKills: 0, evolved: false, soulsGiven: 0, endDef: null, novaFreeAt: 0, healT0: -9, healAmt: 0,
+    nm: SETUP.nm, easy: SETUP.easy && !SETUP.nm, endless: false, bossKills: 0, evolved: false, soulsGiven: 0, endDefs: {}, novaFreeAt: 0, healT0: -9, healAmt: 0,
     wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   });
   bookAdd('w:' + SETUP.start);
@@ -124,10 +124,11 @@ function spawnEnemy(type, x, y) {
   if (x === undefined) { const a = Math.random() * TAU, R = ringDist(); x = p.x + Math.cos(a) * R; y = p.y + Math.sin(a) * R; }
   const min = G.diffT / 60, N = CFG.nightmare, en = endlessN();
   const modeHp = (G.nm ? N.hp : 1) * CFG.endless.hp ** en;            // Ác mộng / vô tận: nhân cả boss
-  const hpMul = (1 + min * CFG.hpScalePerMin) * modeHp, dm = (1 + min * CFG.dmgScalePerMin) * (G.nm ? N.dmg : 1);
+  const hpMul = (1 + min * CFG.hpScalePerMin) * modeHp, dm = (1 + min * CFG.dmgScalePerMin) * (G.nm ? N.dmg : G.easy ? CFG.easy.dmg : 1);
+  const rule = en ? waveDef().rule : null, spMul = (G.easy ? CFG.easy.speed : 1) * (rule && rule.speed && !def.boss ? rule.speed : 1);
   const e = G.enemies.get();
   e.type = type; e.x = x; e.y = y; e.boss = !!def.boss; e.prop = !!def.prop;
-  e.r = def.r; e.speed = def.speed * (def.boss ? 1 : rand(0.9, 1.1)); e.mass = def.mass;
+  e.r = def.r; e.speed = def.speed * spMul * (def.boss ? 1 : rand(0.9, 1.1)); e.mass = def.mass;
   e.maxHp = e.hp = def.hp * (def.prop ? 1 : def.boss ? modeHp : hpMul); e.dmg = def.dmg * dm; e.xp = def.xp; e.dmgScale = dm;
   e.shotDmg = def.ranged ? def.ranged.dmg * dm : 0;
   e.shootT = def.ranged ? rand(1, def.ranged.cd) : 2.5;
@@ -164,12 +165,20 @@ function updateCrates(dt) {
 /* ---------- Đợt quái: đánh → boss → nghỉ → đợt sau; hạ boss cuối là thắng ---------- */
 // Số đợt vô tận đã bắt đầu (đợt 5 → 1, đợt 6 → 2 …)
 function endlessN() { return Math.max(0, G.wave.i - (WAVE_DEFS.length - 1)); }
-// Đợt vô tận: dùng lại định nghĩa đợt 4 với boss ngẫu nhiên (máu/mật độ nhân trong spawnEnemy/spawn)
-function waveDef() {
-  const i = G.wave.i, last = WAVE_DEFS.length - 1;
+// Đợt vô tận (C6): nền là đợt 4 + boss ngẫu nhiên, mỗi đợt thêm một luật trong CFG.endless.rules (máu/mật độ theo số đợt nhân trong spawnEnemy/spawn)
+function waveDef(i = G.wave.i) {
+  const last = WAVE_DEFS.length - 1;
   if (i <= last) return WAVE_DEFS[i];
-  if (!G.endDef || G.endDef.i !== i) G.endDef = { ...WAVE_DEFS[last], i, name: 'Đêm vô tận', boss: WAVE_DEFS[Math.floor(Math.random() * WAVE_DEFS.length)].boss };
-  return G.endDef;
+  if (!G.endDefs[i]) {
+    const base = WAVE_DEFS[last], R = CFG.endless.rules, rule = R[(i - last - 1) % R.length], bosses = WAVE_DEFS.map(w => w.boss);
+    const boss = bosses[Math.floor(Math.random() * bosses.length)], d = { ...base, i, rule, name: rule.name, boss };
+    if (rule.rate) d.rate = base.rate.map(r => r * rule.rate);
+    if (rule.mix) d.mix = [{ t: 0, mix: rule.mix }];
+    if (rule.eliteEvery) { d.elites = []; for (let t = rule.eliteEvery; t < base.dur - 5; t += rule.eliteEvery) d.elites.push(t); }
+    if (rule.bosses > 1) d.boss2 = bosses.filter(b => b !== boss)[Math.floor(Math.random() * (bosses.length - 1))];
+    G.endDefs[i] = d;
+  }
+  return G.endDefs[i];
 }
 const waveLabel = i => i < WAVE_DEFS.length && !G.endless ? `${i + 1}/${WAVE_DEFS.length}` : String(i + 1);
 function waveMix(def, t) { let m = def.mix[0].mix; for (const x of def.mix) if (t >= x.t) m = x.mix; return m; }
@@ -183,7 +192,11 @@ function updateWave(dt) {
     if (def.elites && (w.eliteIdx || 0) < def.elites.length && w.t >= def.elites[w.eliteIdx || 0]) { w.eliteIdx = (w.eliteIdx || 0) + 1; spawnElite(); banner('Quái tinh anh xuất hiện!'); }
     if (!w.warned && def.dur - w.t <= 10) { w.warned = true; banner('Boss sắp xuất hiện!'); SFX.play('warn'); }
     spawn(dt, lerp(def.rate[0], def.rate[1], clamp(w.t / def.dur, 0, 1)), waveMix(def, w.t));
-    if (w.t >= def.dur) { w.phase = 'boss'; w.t = 0; spawnBoss(def.boss); }
+    if (w.t >= def.dur) {
+      w.phase = 'boss'; w.t = 0;
+      const b1 = def.boss2 ? spawnBoss(def.boss2) : null, b2 = spawnBoss(def.boss);   // luật "Song sát": 2 boss, mỗi con ít máu hơn
+      if (b1) for (const b of [b1, b2]) b.maxHp = b.hp *= def.rule.bossHp;
+    }
   } else if (w.phase === 'boss') {
     spawn(dt, def.rate[1] * CFG.bossSpawnMul, waveMix(def, def.dur));   // quái thường thưa hơn khi đánh boss
     if (!G.boss) {
@@ -209,6 +222,7 @@ function spawnBoss(type) {
   G.cine = { t: CFG.cine.dur, x: e.x, y: e.y };
   showBossCard(def);
   setBossName(def.name);
+  return e;
 }
 
 function runEvents(def) {
@@ -668,7 +682,7 @@ function addDmgText(e, dmg) {
     t0.v += dmg; t0.txt = Math.round(t0.v); t0.life = 0.6; t0.pop = 0.12;
     t0.x = e.x; styleDmg(t0); return;
   }
-  if (G.texts.items.length >= CFG.textCap) return;
+  if (G.texts.items.length >= CFG.textCap || !SETTINGS.dmgNum) return;
   const t = G.texts.get();
   t.owner = e; e.txt = t; t.v = dmg; t.txt = Math.round(dmg);
   t.x = e.x + rand(-4, 4); t.y = e.y - e.r; t.life = 0.6; t.pop = 0.12; t.vx = rand(-8, 8); t.num = true;
@@ -744,7 +758,7 @@ function killEnemy(e) {
       G.booms.push({ t: (i + 1) * D.every, x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r, chest: i === D.booms - 1, cx: e.x, cy: e.y });
     }
     G.slowT = D.slow; G.flashT = 0.2; G.flashColor = '#ffffff';
-    if (G.boss === e) G.boss = null;
+    if (G.boss === e) { G.boss = G.enemies.items.find(x => x.boss && !x.dead && x !== e) || null; if (G.boss) setBossName(ENEMIES[G.boss.type].name); }   // còn boss thứ hai (Song sát)
     G.bossKills++;
     addShake(CFG.shakeMax); hitStop(CFG.hitStop.boss); SFX.play('bossdie', { x: e.x });
   } else {

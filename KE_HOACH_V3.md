@@ -1,4 +1,4 @@
-# Đêm Sinh Tồn — Review bản hiện tại và kế hoạch v3 (giao cho Opus)
+# Nightfall: Survival — Review bản hiện tại và kế hoạch v3 (giao cho Opus)
 
 Tài liệu này tự đủ để một phiên làm việc mới thực hiện mà không cần đọc lại lịch sử chat.
 

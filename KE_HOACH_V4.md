@@ -1,4 +1,4 @@
-# KE_HOACH_V4 — Upgrade plan for "Đêm Sinh Tồn"
+# KE_HOACH_V4 — Upgrade plan for "Nightfall: Survival"
 
 Handoff spec for the implementing model. Read `CLAUDE.md` first: it describes the file layout, how to run the game and the dev hooks. This file says what to build, where, and how to verify it. It was written after reading all of `js/` and running the game with the `__vs` hooks and `tools/balance-bot.js`.
 

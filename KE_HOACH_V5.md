@@ -1,6 +1,6 @@
 # KE_HOACH_V5 — Đồ hoạ, âm thanh và cảm giác "chơi thêm ván nữa"
 
-Kế hoạch v5 cho "Đêm Sinh Tồn". Mỗi phase bên dưới là **một prompt tiếng Anh** để dán vào một phiên làm việc mới. Phần cân bằng độ khó **không nằm trong V5** (làm sau).
+Kế hoạch v5 cho "Nightfall: Survival". Mỗi phase bên dưới là **một prompt tiếng Anh** để dán vào một phiên làm việc mới. Phần cân bằng độ khó **không nằm trong V5** (làm sau).
 
 ## Cách dùng
 
@@ -53,7 +53,7 @@ Every phase prompt assumes you have read this section and `CLAUDE.md`.
 
 ````text
 PROJECT
-"Đêm Sinh Tồn" is a Vampire-Survivors-style browser game: plain JavaScript, Canvas 2D, no build
+"Nightfall: Survival" is a Vampire-Survivors-style browser game: plain JavaScript, Canvas 2D, no build
 step, no ES modules, scripts loaded in a fixed order from index.html. CLAUDE.md describes every
 file, how to run the game (python -m http.server 8765, then http://localhost:8765/index.html) and
 the __vs dev hooks. V3 and V4 are finished; KE_HOACH_V4.md shows the house style for specs.
@@ -121,7 +121,7 @@ Capture it at two window sizes, one that gives ZOOM 2 and one that gives ZOOM 3 
 ZOOM to confirm; in the browser pane 1280x720 gives ZOOM 2 and 960x540 gives ZOOM 3). Pane
 screenshots are downscaled, so to inspect pixels set cv.style.transform = 'scale(3)' with a
 transformOrigin on the area of interest, wait a second, then capture. If port 8765 is taken by
-another server, start the "dem-sinh-ton-8766" configuration from .claude/launch.json. Show the user the before/after pair at the end of the phase.
+another server, start the "nightfall-survival-8766" configuration from .claude/launch.json. Show the user the before/after pair at the end of the phase.
 
 VERIFICATION
 - tools/checks.js: `await runChecks()` must still pass. It is a functional regression suite, not

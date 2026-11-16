@@ -1,4 +1,4 @@
-# Đêm Sinh Tồn
+# Nightfall: Survival
 
 Game sinh tồn góc nhìn từ trên xuống, kiểu "bullet heaven": vũ khí tự tấn công, người chơi chỉ di chuyển, né đòn, nhặt ngọc để lên cấp và chọn nâng cấp. Viết bằng HTML5 Canvas + JavaScript thuần, không cần cài đặt hay build.
 
@@ -63,7 +63,11 @@ js/render.js      camera, vẽ sprite/nền/hiệu ứng
 js/game.js        trạng thái ván, quái, boss, va chạm
 js/input.js       bàn phím và cảm ứng
 js/icons.js       icon giao diện
-js/ui.js          HUD, thẻ nâng cấp, màn kết thúc, vòng lặp chính
+js/ui-hud.js      HUD, combo, thông báo, nghi thức rương
+js/ui-menu.js     menu, nâng cấp vĩnh viễn, nhiệm vụ, sổ tay
+js/ui-cards.js    lên cấp, thẻ nâng cấp
+js/ui-end.js      màn kết thúc
+js/ui.js          tạm dừng, bắt đầu ván, vòng lặp chính, khởi động
 js/atlas.js, js/fx-atlas.js   tự sinh — không sửa tay
 assets/           atlas sprite, hiệu ứng, âm thanh, nhạc, font
 tools/            bộ kiểm tra, bot cân bằng, trang nghe thử âm, script ghép atlas / nhập âm

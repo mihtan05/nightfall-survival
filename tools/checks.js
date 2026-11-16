@@ -4,6 +4,58 @@
      const s = document.createElement('script'); s.src = 'tools/checks.js'; document.body.append(s);
      await runChecks()   // trả về danh sách { giai_doan, tieu_chi, ok, chi_tiet }
    Những gì KHÔNG tự kiểm được (nghe âm thanh, cảm giác tay, khung hình thật khi pane bị ẩn) không có ở đây. */
+/* V6 (KE_HOACH_QA A2): mọi phần tử bấm được trong `root` đang hiện phải (a) cạnh ≥ 44 px (ô nhập nằm trong <label> thì đo cả nhãn),
+   (b) trong khung nhìn hoặc trong một vùng cuộn được, (c) elementFromPoint ở tâm trả về chính nó/con của nó.
+   Trả về mảng vi phạm [bảng, phần tử, lý do]. Có thể cuộn vùng chứa để đưa phần tử vào tầm nhìn. */
+window.hitAudit = function (label, root = document) {
+  const out = [], vw = innerWidth, vh = innerHeight;
+  const desc = e => e ? e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/)[0] : '') + (e.id ? '' : ':' + (e.textContent || '').trim().slice(0, 14)) : 'không gì';
+  const els = [...root.querySelectorAll('button, input, .card, .pick, [role=button]')]
+    .filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]'));
+  for (const e of els) {
+    const tgt = e.tagName === 'INPUT' && e.closest('label') ? e.closest('label') : e;
+    let r = tgt.getBoundingClientRect();
+    const ow = tgt.offsetWidth, oh = tgt.offsetHeight;   // cỡ bố cục (không tính transform của hiệu ứng mở bảng)
+    if (ow < 44 || oh < 44) out.push([label, desc(e), `${ow}×${oh} < 44`]);
+    let p = tgt.parentElement, sc = null;   // vùng cuộn gần nhất (bảng dài: phần tử có thể trong khung nhìn nhưng bị vùng cuộn cắt)
+    for (; p; p = p.parentElement) { const s = getComputedStyle(p); if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (p.scrollHeight > p.clientHeight + 1 || p.scrollWidth > p.clientWidth + 1)) { sc = p; break; } }
+    const sr = sc && sc.getBoundingClientRect(), clipped = sr && (r.top < sr.top - 0.5 || r.bottom > sr.bottom + 0.5);
+    if (clipped || r.left < 0 || r.top < 0 || r.right > vw + 0.5 || r.bottom > vh + 0.5) {
+      if (!sc) { out.push([label, desc(e), `ngoài khung (${r.left | 0},${r.top | 0}), không cuộn tới được`]); continue; }
+      tgt.scrollIntoView({ block: 'nearest', inline: 'nearest' }); r = tgt.getBoundingClientRect();
+      if (r.right > vw + 0.5 || r.left < 0) { out.push([label, desc(e), `tràn ngang ${r.left | 0}..${r.right | 0}`]); continue; }
+    }
+    const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (!h || !(h === tgt || tgt.contains(h))) out.push([label, desc(e), 'bị ' + desc(h) + ' che']);
+  }
+  return out;
+};
+/* Mở lần lượt mọi bảng (menu, nâng cấp vĩnh viễn, sổ tay, HUD + thẻ tên đợt + thông báo, chọn thẻ, tạm dừng,
+   kết thúc thua/thắng/sau vô tận) rồi chạy hitAudit. Đổi trạng thái ván và META — runChecks tự sao lưu; gọi tay thì nên tải lại sau. */
+window.auditAll = async function () {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), res = [], hideAll = () => document.querySelectorAll('.overlay.show').forEach(e => e.classList.remove('show'));
+  const end = async (lbl, won, setup) => { hideAll(); startGame(); G.player.hp = G.player.maxHp = 1e6; setup(); G.soulsGiven = 0; endRun(won); clearTimeout(overTimer); openEndPanel(won); finishStaging(); await wait(260); res.push(...hitAudit(lbl, $('over'))); };
+  hideAll(); renderMenu(); show('menu', true); await wait(260); res.push(...hitAudit('menu', $('menu')));
+  openMeta(true); await wait(260); res.push(...hitAudit('meta', $('meta'))); show('meta', false);
+  openBook(true); await wait(260); res.push(...hitAudit('book', $('book'))); show('book', false);
+  hideAll(); startGame(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9;
+  showWaveCard(1); showToast(TOASTS[0]); await wait(400); res.push(...hitAudit('hud', $('hud')));
+  G.pending = 1; openLevelUp(); await wait(900); res.push(...hitAudit('levelup', $('levelup')));
+  show('levelup', false); G.state = 'play'; G.pending = 0;
+  { // thẻ tiến hoá (thẻ đầu) — C2
+    const id = Object.keys(EVOLUTIONS)[0], pid = EVOLUTIONS[id].passive, P = PASSIVES.find(x => x.id === pid);
+    __vs.give(id, 8); for (let l = (G.player.levels[pid] || 0) + 1; l <= CFG.evo.passiveLvl; l++) { G.player.levels[pid] = l; P.apply(G.player, l); }
+    G.pending = 1; openLevelUp(); await wait(900);
+    if (G.choices[0].kind !== 'evo') res.push(['levelup-evo', '-', 'không có thẻ tiến hoá']);
+    res.push(...hitAudit('levelup-evo', $('levelup'))); show('levelup', false); G.state = 'play'; G.pending = 0;
+  }
+  togglePause(); await wait(260); res.push(...hitAudit('paused', $('paused'))); if (G.state === 'paused') togglePause();
+  await end('over-thua', false, () => { G.wave.i = 0; G.kills = 20; });
+  await end('over-thắng', true, () => { G.wave.i = 3; G.bossKills = 4; G.kills = 300; });
+  await end('over-vô tận', false, () => { G.endless = true; G.won = true; G.wave.i = 6; G.bossKills = 7; G.kills = 2000; });
+  hideAll(); $('toasts').replaceChildren();
+  return res;
+};
 window.runChecks = async function () {
   const out = [], v = __vs, G = v.G;
   const ok = (gd, name, pass, detail = '') => out.push({ giai_doan: gd, tieu_chi: name, ok: !!pass, chi_tiet: String(detail) });
@@ -194,8 +246,9 @@ window.runChecks = async function () {
   const metaBak = JSON.stringify(META), setupBak = { ...SETUP }, lsBak = ['vs_meta', 'vs_start'].map(k => [k, localStorage.getItem(k)]);
   Object.assign(META, { souls: 0, up: {}, unlocked: ['bolt'], runs: 0, won: false }); SETUP.start = 'bolt'; SETUP.nm = false;
   fresh(); G.kills = 250; G.bossKills = 1; const s41 = runSouls();
-  META.souls = 40; const bought = buyMeta('hp'); const hp41 = newPlayer().maxHp; const kept = (store.get('vs_meta', {}).up || {}).hp === 1;
-  ok('V4-4', '4.1 250 quái + 1 boss = 40 linh hồn; mua Sinh lực 1 → 128 máu; lưu lại', s41 === 40 && bought && META.souls === 0 && hp41 === 128 && kept, `linh hồn ${s41}, máu ${hp41}, lưu ${kept}`);
+  META.souls = CFG.metaCost[0]; const bought = buyMeta('hp'); const hp41 = newPlayer().maxHp; const kept = (store.get('vs_meta', {}).up || {}).hp === 1;
+  const exp41 = Math.floor(250 / CFG.souls.perKills) + CFG.souls.boss;   // C3: 15 quái/linh hồn → 46
+  ok('V4-4', `4.1 250 quái + 1 boss = ${exp41} linh hồn; mua Sinh lực 1 → 128 máu; lưu lại`, s41 === exp41 && bought && META.souls === 0 && hp41 === 128 && kept, `linh hồn ${s41}, máu ${hp41}, lưu ${kept}`);
   META.up = {}; renderMenu(); const open0 = document.querySelectorAll('#startPick .pick:not(.locked)').length;
   fresh(); G.wave.i = 1; G.kills = 0; G.bossKills = 0; G.soulsGiven = 0; const g42 = grantMeta();
   SETUP.start = 'knife'; fresh(); const lv42 = JSON.stringify(G.player.levels), w42 = Object.keys(G.player.weapons).join();
@@ -223,7 +276,7 @@ window.runChecks = async function () {
   let decMax = 0; for (let i = 0; i < 300; i++) { v.tick(0.05); decMax = Math.max(decMax, G.decals.length); for (let k = 0; k < 5; k++) addDecal('scorch', 0, 0, 10, 5); }
   ok('V5-3', '3.2 Vết trên nền có giới hạn', decMax <= CFG.decals.cap && decMax > 0, `${decMax}/${CFG.decals.cap}`);
   // ---------- V5 Phase 4: cột mốc + thẻ hiện lộ trình ----------
-  const EXP8 = {"bolt":{"dmg":15.679999999999998,"cd":0.5599999999999999,"count":4,"pierce":3,"speed":504,"life":1.3,"r":5,"range":520},"orbit":{"dmg":14.196,"count":5,"radius":74.39999999999999,"spin":4.5,"r":8,"hitCd":0.45,"ang":0},"lightning":{"dmg":27.299999999999997,"cd":1.87,"count":4,"aoe":44.8},"knife":{"dmg":10.92,"cd":0.44000000000000006,"count":4,"pierce":4,"speed":540,"life":0.8,"r":4},"aura":{"dmg":8,"radius":95.04,"tick":0.425,"slow":0.35,"pulse":0},"nova":{"dmg":32.76,"cd":2.975,"maxR":171.875,"kb":5.25,"count":2}}; // trạng thái cấp 8 đo TRƯỚC khi đổi thứ tự cấp
+  const EXP8 = {"bolt":{"dmg":15.679999999999998,"cd":0.5599999999999999,"count":4,"pierce":3,"speed":504,"life":1.3,"r":5,"range":520},"orbit":{"dmg":16.561999999999998,"count":5,"radius":74.39999999999999,"spin":4.5,"r":8,"hitCd":0.45,"ang":0},"lightning":{"dmg":27.299999999999997,"cd":1.87,"count":4,"aoe":44.8},"knife":{"dmg":10.92,"cd":0.44000000000000006,"count":4,"pierce":4,"speed":540,"life":0.8,"r":4},"aura":{"dmg":9,"radius":103.67999999999999,"tick":0.425,"slow":0.35,"pulse":0},"nova":{"dmg":32.76,"cd":2.975,"maxR":171.875,"kb":5.25,"count":2}}; // trạng thái cấp 8 đo TRƯỚC khi đổi thứ tự cấp (C3: orbit dmg gốc 6→7, aura dmg 3→4 + bán kính 55→60 — đo lại)
   const st8 = {}; let same8 = true;
   for (const id of Object.keys(WEAPONS)) { fresh(); G.player.weapons = {}; G.player.levels = {}; v.give(id, 8); const w = G.player.weapons[id];
     for (const [k, val] of Object.entries(EXP8[id])) if (Math.abs(w[k] - val) > 1e-9) { same8 = false; st8[id] = k; } }
@@ -341,6 +394,100 @@ window.runChecks = async function () {
     const skinBtns = document.querySelectorAll('#skinPick button').length;
     ok('V5-10', '10.1 Đến đợt 3 mở Hiệp Sĩ; chọn nhân vật chỉ đổi hình, ghi sổ tay, menu có 4 ô', opened && swapped && back && same && booked && skinBtns === 4,
       `mở ${opened}, đổi hình ${!!swapped}, về gốc ${back}, chỉ số như nhau ${same}, ghi sổ ${booked}, ${skinBtns} ô`);
+  }
+  { // ---- V6-1: màn kết thúc không bị canvas sprite (.spr) phủ lên — nút bấm được bằng chuột ----
+    const bak = JSON.stringify(META), ls = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_stat', 'vs_stat_nm', 'vs_start'].map(k => [k, localStorage.getItem(k)]);
+    const cases = [
+      ['thắng lần đầu', true, ['wizard'], () => { G.wave.i = 3; G.bossKills = 4; G.kills = 300; }],
+      ['thua', false, ['wizard'], () => { G.wave.i = 0; G.kills = 20; }],
+      ['thua, mục tiêu là nhân vật', false, ['wizard', 'knight', 'lizard'], () => { G.wave.i = 1; G.kills = 950; }],
+      ['thua, lần đầu tới đợt 3', false, ['wizard'], () => { G.wave.i = 2; G.kills = 100; }],
+    ], bad = [];
+    for (const [name, won, skins, setup] of cases) {
+      Object.assign(META, { souls: 0, up: {}, unlocked: ['bolt'], runs: 0, won: false, skins: skins.slice() });
+      fresh(); setup(); G.soulsGiven = 0; G.evolved = false; endRun(won); clearTimeout(overTimer);
+      openEndPanel(won); finishStaging(); await wait(120);   // để khung hình thật chạy và trình duyệt dàn trang
+      const spr = document.querySelectorAll('#over canvas.spr').length;
+      for (const c of document.querySelectorAll('canvas:not(#cv)')) { const r = c.getBoundingClientRect(); if (c.getClientRects().length && (r.width > 64 || r.height > 64)) bad.push(`${name}: ${c.id || c.className} ${r.width | 0}×${r.height | 0}`); }
+      for (const id of ['againBtn', 'menuBtn', 'endlessBtn']) {
+        const b = document.getElementById(id); if (b.hidden || !b.getClientRects().length) { if (id !== 'endlessBtn' || won) bad.push(`${name}: #${id} ẩn`); continue; }
+        b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(), e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        if (!e || !(e === b || b.contains(e))) bad.push(`${name}: #${id} bị ${e ? e.tagName + '.' + e.className : 'ngoài màn'} che`);
+      }
+      if (name !== 'thua' && !spr) bad.push(`${name}: không có hình nhân vật`);   // đúng đường vào có canvas
+    }
+    const viol = await auditAll();   // V6-2 (A2); META/localStorage trả lại ngay dưới đây
+    show('over', false);
+    for (const k of Object.keys(META)) delete META[k];
+    Object.assign(META, JSON.parse(bak));
+    for (const [k, val] of ls) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);
+    ok('V6-1', '1.1 Màn kết thúc (thắng lần đầu, thua, thua với mục tiêu nhân vật, lần đầu tới đợt 3): canvas phụ ≤ 64 px, nút không bị che', !bad.length, bad.join('; ') || 'ok');
+    ok('V6-2', '2.1 hitAudit mọi bảng (menu, nâng cấp, sổ tay, HUD, chọn thẻ, tạm dừng, kết thúc ×3): nút ≥ 44 px, tới được, không bị che', !viol.length,
+      viol.slice(0, 8).map(a => a.join(' ')).join('; ') || `ok (${innerWidth}×${innerHeight})`);
+  }
+  { // ---- V6-3 (C1): lưới an toàn ----
+    // (a) Hạ boss cuối rồi trúng đòn chí mạng trong lúc chờ vụ nổ: vẫn là THẮNG (Q-007)
+    fresh(); v.skipTo(3); G.boss = null; G.wave.phase = 'won'; G.wave.t = 0; G.player.hp = G.player.maxHp = 100; G.player.iframe = 0;
+    hurtPlayer(1e6, 'skeleton'); const noHurt = G.player.hp === 100;
+    v.tick(CFG.bossDeath.winWait + 0.1); clearTimeout(overTimer); const won = G.state === 'over' && G.won === true;
+    // (b) Lỗi lặp trong update(): hộp báo lỗi hiện, ván tự tạm dừng, vòng lặp còn sống
+    const eb = () => document.getElementById('errBox'), hideEb = () => { if (eb()) eb().classList.remove('show'); errBox.n = 0; };
+    const origU = window.update, origR = window.render;
+    const until = async (f, ms = 5000) => { const t = performance.now(); while (!f() && performance.now() - t < ms) await wait(30); return f(); };   // chờ khung hình thật (pane có thể chạy chậm)
+    fresh(); hideEb(); window.update = () => { throw new Error('lỗi giả V6-3'); };
+    await until(() => eb() && eb().classList.contains('show')); window.update = origU;
+    const boxU = !!(eb() && eb().classList.contains('show') && /lỗi giả V6-3/.test(eb().textContent)), pausedU = G.state === 'paused';
+    if (G.state === 'paused') togglePause(); hideEb();
+    // (c) Lỗi khi vẽ: HUD vẫn cập nhật (vòng lặp không đứng)
+    window.render = () => { throw new Error('lỗi vẽ giả V6-3'); }; G.kills = 4321;
+    await until(() => eb() && eb().classList.contains('show') && document.getElementById('killTxt').textContent.replace(/\D/g, '') === '4321'); window.render = origR;
+    const boxR = !!(eb() && eb().classList.contains('show')), hudR = document.getElementById('killTxt').textContent.replace(/\D/g, '') === '4321';
+    if (G.state === 'paused') togglePause(); hideEb();
+    // (d) Bản lưu sửa tay: kẹp về khoảng hợp lệ (Q-030)
+    const m1 = META_UPGRADES[0].id, m2 = META_UPGRADES[1].id;
+    const nm = normMeta({ souls: -5, runs: 'x', up: { [m1]: -3, [m2]: 999, zzz: 2 }, unlocked: 'bolt', skins: ['nobody'], missions: [null] });
+    const clampOk = nm.souls === 0 && nm.runs === 0 && !(m1 in nm.up) && nm.up[m2] === CFG.metaCost.length && !('zzz' in nm.up) && nm.unlocked.includes('bolt') && nm.skins[0] === 'wizard';
+    // (e) Không ghi được localStorage: báo một lần, không vỡ
+    const origSet = Storage.prototype.setItem; store.failed = false; let threw = false;
+    Storage.prototype.setItem = () => { throw new Error('quota'); };
+    try { store.set('vs_meta', META); store.set('vs_meta', META); } catch { threw = true; } finally { Storage.prototype.setItem = origSet; }
+    const toasts = [...document.querySelectorAll('#toasts .toast')].filter(t => /Không lưu được/.test(t.textContent)).length;
+    store.failed = false; document.getElementById('toasts').replaceChildren();
+    ok('V6-3', '3.1 Lưới an toàn: thắng không thành thua khi chờ nổ; lỗi update/vẽ hiện hộp báo, vòng lặp sống; bản lưu hỏng được kẹp; lưu thất bại báo 1 lần',
+      noHurt && won && boxU && pausedU && boxR && hudR && clampOk && !threw && toasts === 1,
+      `thắng ${noHurt}/${won}, lỗi update ${boxU}/${pausedU}, lỗi vẽ ${boxR}/HUD ${hudR}, kẹp ${clampOk}, lưu hỏng ${!threw}/${toasts} thông báo`);
+  }
+  { // ---- V6-4 (C2): bố cục co giãn ở cỡ màn hiện tại ----
+    const k = clamp(Math.min(innerHeight / 720, innerWidth / 1280), 1, 2), z = parseFloat(getComputedStyle(document.getElementById('hud')).zoom) || 1;
+    fresh(); for (const id of ['nova', 'aura', 'bolt', 'knife']) { v.give(id, 5); G.stats.dmg[id] = 1000 + 500 * Object.keys(G.stats.dmg).length; } G.stats.taken.skeleton = 50;
+    await wait(200);
+    let minFs = 99, minEl = ''; for (const e of document.querySelectorAll('#hud *')) { if (!e.getClientRects().length || e.id === 'fps' || ![...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue; const fs = parseFloat(getComputedStyle(e).fontSize) * z; if (fs < minFs) { minFs = fs; minEl = e.id || e.className || e.tagName; } }
+    const tall = innerHeight >= 700, end = [];
+    for (const won of [false, true]) {
+      G.state = 'play'; G.wave.i = won ? 3 : 1; G.bossKills = won ? 4 : 1; G.kills = 900; G.soulsGiven = 0; endRun(won); clearTimeout(overTimer); openEndPanel(won); finishStaging(); await wait(350);
+      const p = document.getElementById('overPanel'); p.scrollTop = 0; await wait(30);
+      const b = document.getElementById(won ? 'endlessBtn' : 'againBtn'), r = b.getBoundingClientRect(), h = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      const over = p.scrollHeight - p.clientHeight;
+      if (tall && over > 1) end.push(`${won ? 'thắng' : 'thua'} cuộn ${over}px`);
+      if (!h || !(h === b || b.contains(h))) end.push(`${won ? 'thắng' : 'thua'}: nút chính không thấy khi chưa cuộn`);
+      show('over', false); fresh();
+    }
+    G.pending = 1; openLevelUp(); await wait(900); const lp = document.querySelector('#levelup .panel'), cardsOver = lp.scrollHeight - lp.clientHeight; while (G.state === 'levelup') v.choose(G.choices[0]);
+    if (tall && cardsOver > 1) end.push(`bảng thẻ cuộn ${cardsOver}px`);
+    ok('V6-4', '4.1 Bố cục co giãn: HUD phóng theo màn (--ui), chữ HUD ≥ 12 px thật; màn kết thúc + bảng thẻ không cuộn khi cao ≥ 700; nút chính luôn thấy',
+      Math.abs(z - k) < 0.01 && minFs >= 12 && !end.length, `${innerWidth}×${innerHeight}: ui ${z} (cần ${k.toFixed(3)}), chữ nhỏ nhất ${minFs.toFixed(1)}px (${minEl}); ${end.join('; ') || 'kết thúc/thẻ ok'}`);
+  }
+  { // ---- V6-5 (C3): cân bằng — báo trước tối thiểu, linh hồn ván đầu ----
+    fresh(); const short = [];
+    for (const [bid, def] of Object.entries(ENEMIES).filter(([, d]) => d.boss)) for (const id of new Set(def.skills.concat(def.skills2 || []))) {
+      const e = spawnEnemy(bid, P().x + 200, P().y); e.hp = e.maxHp * 0.4; e.raged = true; e.haste = CFG.enrage.max; e.skillCd = {};
+      startSkill(e, { skills: [id] }); if (!(e.skill.t >= CFG.teleMin - 1e-9)) short.push(`${id} ${e.skill.t.toFixed(2)}s`);
+      G.enemies.clear(); G.zones.length = 0;
+    }
+    fresh(); G.t = 180; G.kills = 150; G.bossKills = 0; G.won = false; G.endless = false; G.nm = false;
+    const s3 = runSouls();
+    ok('V6-5', '5.1 Báo trước kỹ năng boss ≥ CFG.teleMin kể cả nổi giận + cuồng nộ tối đa; ván thua 3 phút/150 quái đủ ≥ 1/3 nâng cấp đầu',
+      !short.length && s3 * 3 >= CFG.metaCost[0], `${short.join(', ') || 'mọi kỹ năng ≥ ' + CFG.teleMin + ' s'}; 150 quái → ${s3} linh hồn, bậc đầu ${CFG.metaCost[0]}`);
   }
   for (const k of Object.keys(META)) delete META[k];
   Object.assign(META, JSON.parse(metaAll));

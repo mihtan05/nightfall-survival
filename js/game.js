@@ -30,6 +30,13 @@ function normMeta(m) {
   if (!Array.isArray(m.missions)) m.missions = [];
   if (!Array.isArray(m.skins)) m.skins = ['wizard'];
   m.missions = m.missions.filter(x => x && MISSIONS.some(d => d.id === x.id));
+  // Bản lưu sửa tay / hỏng: kẹp số về khoảng hợp lệ (Q-030)
+  const num = v => Number.isFinite(+v) ? Math.floor(+v) : 0;
+  m.souls = clamp(num(m.souls), 0, 1e9); m.runs = Math.max(0, num(m.runs)); m.won = !!m.won;
+  for (const k of Object.keys(m.up)) { const v = num(m.up[k]); if (v > 0 && META_UPGRADES.some(u => u.id === k)) m.up[k] = Math.min(v, CFG.metaCost.length); else delete m.up[k]; }
+  m.unlocked = m.unlocked.filter(id => WEAPONS[id]); if (!m.unlocked.includes('bolt')) m.unlocked.unshift('bolt');
+  m.skins = m.skins.filter(id => SKINS[id]); if (!m.skins.includes('wizard')) m.skins.unshift('wizard');
+  m.book = m.book.filter(k => typeof k === 'string');
   return m;
 }
 normMeta(META);
@@ -235,7 +242,7 @@ function startSkill(e, def) {
   if (!ready.length) { e.nextSkill = 0.3; return; }
   const id = ready[Math.floor(Math.random() * ready.length)], S = BOSS_SKILLS[id], p = G.player;
   const rage = e.hp < e.maxHp * 0.5, h = 1 + (e.haste || 0);
-  const sk = e.skill = { id, phase: 'tele', t: S.tele * (rage ? 0.85 : 1) / h };
+  const sk = e.skill = { id, phase: 'tele', t: Math.max(CFG.teleMin, S.tele * (rage ? 0.85 : 1) / h) };
   sk.tele0 = sk.t;
   e.skillCd[id] = S.cd * (rage ? 0.7 : 1) / h;
   if (id === 'charge' || id === 'quake') { sk.dir = Math.atan2(p.y - e.y, p.x - e.x); sk.x0 = e.x; sk.y0 = e.y; }
@@ -446,6 +453,7 @@ function updateSfx(dt) {
 function hurtPlayer(dmg, src = '?') {
   const p = G.player;
   if (p.iframe > 0) return;
+  if (G.wave.phase === 'won') return;   // đã hạ boss cuối: đang chờ vụ nổ, không còn thua được (Q-007)
   if (p.buffs.shield > 0 && p.shieldHits > 0) { // khiên phép chặn đòn
     p.shieldHits--; if (!p.shieldHits) p.buffs.shield = 0;
     p.iframe = CFG.player.iframe; burst(p.x, p.y, '#7fc8ff', 14, 160, 3, 0.4); SFX.play('shieldHit');

@@ -8,12 +8,13 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
-canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;image-rendering:pixelated}
+#cv{display:block;position:fixed;inset:0;width:100vw;height:100vh;image-rendering:pixelated}   /* chỉ canvas game toàn màn hình */
+canvas.spr{display:block;flex:none;image-rendering:pixelated}   /* hình sprite nhỏ trong giao diện (spriteIcon đặt cỡ) */
 img.ico,.ico img{image-rendering:pixelated;display:block}
 .ico{display:inline-grid;place-items:center}
 
 /* ---------- HUD ---------- */
-#hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:2;zoom:var(--ui,1)}   /* C2: HUD co giãn theo màn hình (--ui đặt trong ui-hud.js) */
 #xpbar{position:absolute;top:0;left:0;right:0;height:calc(12px + var(--sat));background:#000b;border-bottom:1px solid var(--line)}
 #xpfill{position:absolute;left:0;bottom:0;height:12px;width:0;background:linear-gradient(90deg,#2a6cff,var(--xp));transition:width .1s}
 #lvl{position:absolute;bottom:0;right:calc(8px + var(--sar));font:16px/12px var(--px);text-shadow:0 1px 0 #000}
@@ -175,7 +176,7 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .pips8 i.on{background:var(--gold);border-color:var(--gold)}
 .pips8 i.ms.on{background:#4dc3ff;border-color:#4dc3ff}
 .pips8 i.nx{border-color:var(--gold);animation:pipPulse .7s ease-in-out infinite alternate}
-.pips8 i.star{width:auto;height:auto;border:0;background:none;font:14px/1 var(--px);color:#5a4a2a;margin-left:2px}
+.pips8 i.star{width:auto;height:auto;border:0;background:none;font:14px/1 var(--px);color:#a08a5c;margin-left:2px}
 .pips8 i.star.on,.pips8 i.star.nx{color:var(--gold)}
 @keyframes pipPulse{from{background:#000}to{background:#ffd16699}}
 .card .diff{list-style:none;margin:6px 0 0;font:18px/1.15 var(--px);color:#d8f5c8}
@@ -247,7 +248,6 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .pick:hover,.pick:focus-visible{border-color:var(--accent);outline:none;transform:translateY(-2px)}
 .pick[aria-checked="true"]{border-color:var(--gold);box-shadow:0 0 12px #ffd16666}
 .pick.locked img,.pick.locked canvas{filter:grayscale(1) brightness(.45)}
-.pick canvas.spr{position:static;inset:auto;width:40px;height:40px;image-rendering:pixelated}   /* bỏ quy tắc toàn màn hình của canvas game */
 .pick.locked i{position:absolute;right:-4px;bottom:-4px;font-size:14px;font-style:normal}
 .sub.hint{min-height:1.4em;margin:0 0 8px;font-size:14px}
 .nmtoggle{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;min-height:44px;cursor:pointer;color:#ffb3c0;font:22px/1 var(--px)}
@@ -295,10 +295,10 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .bookgrid h3{margin:12px 0 6px}
 .bkrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .bk{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;background:var(--card);border:1px solid var(--line);border-radius:10px;text-align:center}
-.bk img,.bk canvas{position:static;width:40px;height:40px;image-rendering:pixelated}   /* canvas trong DOM: bỏ quy tắc toàn màn hình của canvas game */
+.bk img{width:40px;height:40px;image-rendering:pixelated}
 .pausegrid .missions{max-width:none;margin:0}
 .bk .bn{font:18px/1.05 var(--px);color:var(--text)}
-.bk small{font-size:11px;color:#d9b45a;line-height:1.2}
+.bk small{font-size:12px;color:#d9b45a;line-height:1.2}
 .bk.evo{border-color:#6d5a2a}
 .bk.off{background:#0b0a12;border-style:dashed}
 .bk.off img,.bk.off canvas{filter:brightness(0);opacity:.6}
@@ -317,6 +317,7 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
 .goals h3{margin-bottom:6px}
 .goal{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:14px}
 .goal img{width:22px;height:22px;flex:none}
+.goal canvas.spr{width:22px!important;height:22px!important}   /* thắng cỡ inline của spriteIcon */
 .goal .gl{flex:1 1 auto;min-width:0}
 .goal .gbar{flex:0 0 32%;height:8px;background:#000;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .goal .gbar i{display:block;height:100%;background:linear-gradient(90deg,#2a8a5a,#5cff9d)}
@@ -365,4 +366,49 @@ kbd{background:#000;border:1px solid var(--line);border-radius:4px;padding:1px 6
   .cards{grid-template-columns:repeat(3,1fr)}
   .card .ds{font-size:12px}
   h1{font-size:40px} .sub{margin:4px 0 10px}
+}
+/* C1: hộp báo lỗi toàn cục (reportError trong util.js) — trên mọi bảng */
+#errBox{position:fixed;left:50%;bottom:calc(16px + var(--sab));transform:translateX(-50%);z-index:50;display:none;flex-direction:column;gap:8px;align-items:center;max-width:min(560px,calc(100vw - 32px));padding:14px 18px;background:var(--panel);border:1px solid #ff3b5c;border-radius:12px;box-shadow:0 10px 40px #000;text-align:center;color:var(--text)}
+#errBox.show{display:flex}
+#errBox b{font:22px/1 var(--px);color:#ff6b81}
+#errBox span{font-size:13px;color:#d8d0e8;word-break:break-word}
+#errBox div{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#errBox .btn.ghost{margin-top:0}
+/* ---------- C2: bố cục co giãn ---------- */
+.sub small{font-size:12px}
+/* Màn kết thúc: thua thì hàng nút dính đáy bảng (luôn thấy dù phải cuộn); màn rộng xếp 2 cột cho vừa một màn hình */
+.endp:not(.win){scroll-padding-bottom:96px}   /* phần tử được cuộn tới không nằm dưới hàng nút dính đáy */
+.endp:not(.win) .menubtns{position:sticky;bottom:-24px;z-index:1;margin-top:6px;padding:10px 0 14px;background:var(--panel);box-shadow:0 -14px 14px -6px var(--panel)}
+@media (max-width:640px){ .endp:not(.win) .menubtns{bottom:-18px} }
+@media (min-width:900px){
+  .panel.endp{max-width:980px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:22px;align-content:start}
+  .endp [data-k="title"]{grid-area:title} .endp [data-k="btns"]{grid-area:btns} .endp [data-k="goals"]{grid-area:goals}
+  .endp [data-k="timeline"]{grid-area:tl} .endp [data-k="stats"]{grid-area:stats} .endp [data-k="dmg"]{grid-area:dmg} .endp [data-k="souls"]{grid-area:souls}
+  .endp:not(.win){grid-template-areas:"title title" "goals stats" "goals dmg" "tl dmg" "souls dmg" "btns btns"}
+  .endp.win{grid-template-areas:"title title" "btns btns" "tl stats" "souls dmg" "goals dmg"}
+  .endp .result{margin:10px 0 12px}
+  .endp .timeline{margin:10px 0 14px}
+  .endp .goals{margin:10px 0 6px;align-self:start}
+  .endp .dmglist{align-self:start;margin-top:4px}
+}
+@media (max-height:860px){
+  .endp h2{font-size:32px}
+  .endp .result{gap:6px;margin:10px 0 12px} .endp .result div{padding:7px} .endp .result b{font-size:26px}
+  .endp .dmgrow{margin:2px 0} .endp .dmgrow small{display:none}
+  .cards{gap:8px} #levelup .panel{padding:16px}
+}
+/* C2: màn kết thúc trên điện thoại dọc — gọn để vừa một màn (≥ 700 px cao) */
+@media (max-width:640px){
+  .endp .result{grid-template-columns:repeat(4,1fr);gap:5px;margin:8px 0 10px}
+  .endp .result div{padding:6px 3px} .endp .result b{font-size:22px} .endp .result span{font-size:12px} .endp .result small{font-size:12px;min-height:0}
+  .endp .goals{padding:8px 10px;margin:6px 0 4px} .endp .goal{font-size:13px;margin:3px 0;gap:6px} .endp .goal .gbar{flex-basis:20%} .endp .goal b{font-size:16px}
+  .endp .goals h3{margin-bottom:2px}
+  .endp .timeline{margin:6px 0 14px}
+  .endp .dmgrow{margin:2px 0} .endp .dmgrow small{display:none} .endp .dmglist{margin-bottom:6px}
+  .endp .menubtns{gap:6px}
+  .endp .menubtns .btn{font-size:20px;padding:8px 14px;min-height:44px}
+  .endp .souls.gain{margin:4px 0}
+  .endp .dmgrow:nth-of-type(n+4),.endp .dmglist .taken,.endp .result small{display:none}   /* chỉ 3 vũ khí gây sát thương nhiều nhất */
+  .endp .goal .gl{line-height:1.2}
+  .endp.win .menubtns{margin:4px 0 6px} .endp h2{font-size:28px}
 }

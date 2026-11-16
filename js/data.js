@@ -5,9 +5,9 @@
 const CFG = {
   player: { hp: 120, speed: 150, radius: 12, iframe: 0.6, magnet: 100 },
   spawn: { maxEnemies: 450, ringPad: 80 },
-  hpScalePerMin: 0.38,   // máu quái +38% mỗi phút GIAO TRANH (G.diffT: không tính lúc đánh boss / nghỉ)
+  hpScalePerMin: 0.33,   // máu quái +33% mỗi phút GIAO TRANH (C3: 0.38 → 0.33) (G.diffT: không tính lúc đánh boss / nghỉ)
   dmgScalePerMin: 0.08,  // sát thương quái +8% mỗi phút giao tranh
-  xpFor: l => Math.floor(2 + l * 2.5 + l * l * 0.3),
+  xpFor: l => Math.floor(2 + l * 2.5 + l * l * 0.26),   // C3: 0.3 → 0.26 (bớt quãng lặng phần thưởng giữa đợt 2–3)
   itemChance: 0.016,     // tỉ lệ quái thường rơi vật phẩm (xem ITEMS)
   crates: { max: 5, every: 7 },  // số thùng gỗ tối đa quanh người chơi, giây giữa 2 lần sinh
   restTime: 6,           // giây nghỉ giữa 2 đợt (sau khi hạ boss)
@@ -30,6 +30,7 @@ const CFG = {
   bossDeath: { slow: 0.9, rate: 0.3, booms: 5, every: 0.12, winWait: 2.2 }, // boss chết: chậm 30% trong 0.9 giây thật, 5 vụ nổ nối tiếp
   gems: { mergeAt: 150, mergeR: 28, look: 12 },
   bossGap: 1.0,          // giây nghỉ giữa 2 kỹ năng boss
+  teleMin: 0.4,         // C3: báo trước kỹ năng boss không ngắn hơn (kể cả khi nổi giận + cuồng nộ)
   enrage: { after: 75, every: 15, step: 0.1, max: 0.5 }, // boss sống quá 75 giây: cứ 15 giây nhanh thêm 10% (tối đa 50%)
   elite: { hp: 10, sc: 1.5, r: 1.4, dmg: 1.5, mass: 3, gem: 25, types: ['skeleton', 'ghost', 'golem'] }, // quái tinh anh // nhiều ngọc: ngọc mới gộp vào ngọc gần (trong 12 ngọc rơi gần nhất)
   /* Viền sprite, vẽ lúc chạy ở độ phân giải canvas (xem "BỘ ĐỆM SPRITE" trong render.js):
@@ -152,13 +153,13 @@ const ENEMIES = {
   slime:    { hp: 14,  speed: 50,  dmg: 9,  r: 12, xp: 2, mass: 1.4, color: '#4fbf5a' },
   skeleton: { hp: 26,  speed: 66,  dmg: 10, r: 11, xp: 3, mass: 1.0, color: '#e8e2d0' },
   ghost:    { hp: 18,  speed: 62,  dmg: 8,  r: 11, xp: 4, mass: 0.8, color: '#9b7bd1', cap: 6, ranged: { range: 200, cd: 3.4, speed: 150, dmg: 6 } },
-  golem:    { hp: 95,  speed: 38,  dmg: 12, r: 18, xp: 8, mass: 4,   color: '#b8956a' },
+  golem:    { hp: 95,  speed: 38,  dmg: 10, r: 18, xp: 8, mass: 4,   color: '#b8956a' },
   // Quỷ nổ: lao nhanh, tới gần (hoặc bị hạ) thì nổ thành vùng sát thương — vùng này cũng làm hại quái
   bomber:   { hp: 10,  speed: 125, dmg: 0,  r: 10, xp: 3, mass: 0.6, color: '#ff9a3d', cap: 8, bomb: { near: 46, r: 40, delay: 0.55, dmg: 14, enemyDmg: 30 } },
   // Nhớt mẹ: chết thì tách thành 3 nhớt con
-  splitter: { hp: 70,  speed: 40,  dmg: 11, r: 18, xp: 4, mass: 3,   color: '#8a6d64', split: { type: 'slime', n: 3, kb: 120 } },
+  splitter: { hp: 70,  speed: 40,  dmg: 10, r: 18, xp: 4, mass: 3,   color: '#8a6d64', split: { type: 'slime', n: 3, kb: 120 } },
   // Kỵ sĩ xương: dừng lại báo trước (vạch đỏ) rồi lao thẳng
-  charger:  { hp: 45,  speed: 60,  dmg: 14, r: 12, xp: 5, mass: 1.5, color: '#c0603a', cap: 6, charge: { min: 70, max: 190, tele: 0.5, dur: 0.4, speed: 380, cd: 4, len: 150 } },
+  charger:  { hp: 45,  speed: 60,  dmg: 12, r: 12, xp: 5, mass: 1.5, color: '#c0603a', cap: 6, charge: { min: 70, max: 190, tele: 0.5, dur: 0.4, speed: 380, cd: 4, len: 150 } },
   crate:    { hp: 1,   speed: 0,   dmg: 0,  r: 9,  xp: 0, mass: 99,  color: '#a8743e', prop: true }, // thùng gỗ phá được
 
   /* Boss cuối mỗi đợt. skills: tên kỹ năng trong BOSS_SKILLS (lặp tên = hay dùng hơn); summon: lâu la gọi ra.
@@ -178,16 +179,16 @@ const ENEMIES = {
 const BOSS_SKILLS = {
   charge:   { tele: 0.8, cd: 4.5, speed: 430, dur: 0.5 },                                 // lao thẳng (vạch đỏ báo trước)
   summon:   { tele: 0.6, cd: 9 },                                                        // gọi lâu la (vòng phép)
-  ring:     { tele: 0.6, cd: 4,   n: 12, speed: 135, dmg: 11 },                           // vòng đạn tỏa ra
-  spiral:   { tele: 0.5, cd: 7,   dur: 2.4, every: 0.09, arms: 3, speed: 115, dmg: 8 },  // đạn xoắn ốc
+  ring:     { tele: 0.6, cd: 4,   n: 12, speed: 135, dmg: 14 },                           // vòng đạn tỏa ra
+  spiral:   { tele: 0.5, cd: 7,   dur: 2.4, every: 0.09, arms: 3, speed: 115, dmg: 10 },  // đạn xoắn ốc
   teleport: { tele: 0.7, cd: 6 },                                                        // dịch chuyển tới cạnh người chơi
-  slam:     { tele: 1.0, cd: 4.5, n: 3, r: 44, dmg: 26 },                                // dậm đất: vòng nổ chỗ người chơi
-  meteor:   { tele: 1.1, cd: 6,   n: 6, r: 32, dmg: 22 },                                // mưa thiên thạch quanh người chơi
+  slam:     { tele: 1.0, cd: 4.5, n: 3, r: 44, dmg: 30 },                                // dậm đất: vòng nổ chỗ người chơi
+  meteor:   { tele: 1.1, cd: 6,   n: 6, r: 32, dmg: 26 },                                // mưa thiên thạch quanh người chơi
   // kỹ năng pha 2 (skills2)
-  quake:    { tele: 0.8, cd: 6,   speed: 430, dur: 0.5, n: 3, r: 36, dmg: 16, warn: 0.6, gap: 0.15, span: 120 }, // lao + 3 vùng nổ dọc vệt lao
-  wall:     { tele: 0.6, cd: 7,   n: 20, hole: 4, speed: 110, dmg: 8, dur: 0.6 },              // 2 vòng đạn có khe hở, khe vòng 2 lệch 90°
-  boulders: { tele: 0.9, cd: 6,   n: 5, r: 30, dmg: 18, step: 55, gap: 0.18 },                 // 5 tảng đá rơi thành hàng về phía người chơi
-  rings:    { tele: 0.6, cd: 7,   n: 16, k: 3, every: 0.5, speed: 125, dmg: 9, dur: 1.0 },     // 3 vòng đạn liên tiếp, lệch nửa bước
+  quake:    { tele: 0.8, cd: 6,   speed: 430, dur: 0.5, n: 3, r: 36, dmg: 20, warn: 0.6, gap: 0.15, span: 120 }, // lao + 3 vùng nổ dọc vệt lao
+  wall:     { tele: 0.6, cd: 7,   n: 20, hole: 4, speed: 110, dmg: 10, dur: 0.6 },              // 2 vòng đạn có khe hở, khe vòng 2 lệch 90°
+  boulders: { tele: 0.9, cd: 6,   n: 5, r: 30, dmg: 22, step: 55, gap: 0.18 },                 // 5 tảng đá rơi thành hàng về phía người chơi
+  rings:    { tele: 0.6, cd: 7,   n: 16, k: 3, every: 0.5, speed: 125, dmg: 11, dur: 1.0 },     // 3 vòng đạn liên tiếp, lệch nửa bước
 };
 
 /* Vật phẩm nhặt được: rơi từ thùng gỗ (luôn rơi) hoặc từ quái thường (CFG.itemChance).
@@ -261,7 +262,7 @@ const WEAPONS = {
   },
   orbit: {
     name: 'Vòng Huyết Nguyệt', icon: '◐', desc: 'Cầu máu xoay quanh người, chém quái chạm phải',
-    base: { dmg: 6, count: 2, radius: 62, spin: 3, r: 8, hitCd: 0.45, ang: 0 },
+    base: { dmg: 7, count: 2, radius: 62, spin: 3, r: 8, hitCd: 0.45, ang: 0 },
     levels: [
       { d: '+1 cầu',                          f: s => s.count++ },
       { d: '+30% sát thương',                 f: s => s.dmg *= 1.3 },
@@ -342,7 +343,7 @@ const WEAPONS = {
   },
   aura: {
     name: 'Hào Quang Độc', icon: '☣', desc: 'Vùng độc quanh người, gây sát thương liên tục',
-    base: { dmg: 3, radius: 55, tick: 0.5, slow: 0.1, pulse: 0 },
+    base: { dmg: 4, radius: 60, tick: 0.5, slow: 0.1, pulse: 0 },
     levels: [
       { d: '+20% bán kính',                 f: s => s.radius *= 1.2 },
       { d: '+2 sát thương',                 f: s => s.dmg += 2 },
@@ -526,8 +527,8 @@ const EVOLUTIONS = {
 
 /* ---------- V4 GĐ4: chơi lại nhiều lần ---------- */
 // Linh hồn nhận khi kết thúc ván: floor(quái/25) + 30 mỗi boss + 100 nếu thắng (Ác mộng ×1.5)
-CFG.souls = { perKills: 25, boss: 30, win: 100, countUp: 0.8 };
-CFG.metaCost = [40, 80, 140, 220, 320];
+CFG.souls = { perKills: 15, boss: 30, win: 100, countUp: 0.8 };   // C3: 25 → 15 quái mỗi linh hồn
+CFG.metaCost = [30, 80, 140, 220, 320];   // C3: bậc đầu 40 → 30
 CFG.nightmare = { hp: 1.5, dmg: 1.3, rate: 1.25, souls: 1.5 };
 CFG.endless = { rate: 0.15, hp: 1.5 };       // đợt vô tận thứ n: mật độ ×(1+0.15n), máu quái ×1.5^n
 // Nâng cấp vĩnh viễn (5 cấp mỗi loại), áp dụng trong newPlayer()

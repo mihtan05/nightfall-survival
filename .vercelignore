@@ -1,0 +1,7 @@
+.claude
+vendor
+tools
+*.md
+!CREDITS.md
+index.backup-g0.html
+__pycache__

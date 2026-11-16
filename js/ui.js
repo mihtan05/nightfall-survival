@@ -187,4 +187,12 @@ renderMenu();
 resetWorld();
 // Tiêu đề menu chỉ "rơi vào chỗ" một lần mỗi lần mở trang
 document.querySelector('#menu h1').addEventListener('animationend', e => e.currentTarget.classList.remove('intro'), { once: true });
+// C8: service worker (sw.js) lưu mọi file đã tải → lần sau tắt mạng vẫn chơi được. File tải TRƯỚC khi worker nhận trang
+// (js, css, ảnh của lần mở đầu tiên) được chép vào kho ở đây; âm thanh tải sau khi bấm "Bắt đầu" thì worker tự lưu.
+if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) addEventListener('load', () => {
+  const first = !navigator.serviceWorker.controller;   // lần mở đầu tiên: worker chưa nhận trang nên chưa lưu gì
+  navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => first && caches.open('nfs-v1'))
+    .then(c => c && Promise.all([location.pathname, ...performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin))].map(u => c.add(u).catch(() => {}))))
+    .catch(e => console.warn('Không bật được chế độ ngoại tuyến', e));
+});
 Assets.load().then(() => { buildIcons(); updateMuteBtn(); renderOwned(); renderMenu(); requestAnimationFrame(t => { last = t; frame(t); }); });

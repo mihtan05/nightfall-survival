@@ -93,6 +93,7 @@ body.cine #cineTop,body.cine #cineBot{transform:none}
 #toasts{position:absolute;right:calc(14px + var(--sar));top:38%;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .toast{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;background:#0b0812d9;border:1px solid var(--line);border-left:3px solid #5cff9d;border-radius:8px;font:20px/1 var(--px);color:var(--text);text-shadow:0 1px 0 #000;animation:toastA 2.8s ease forwards}
 .toast.gold{border-left-color:var(--gold);color:#ffe7a8}
+.toast.hint{border-left-color:#6cc8ff;animation-duration:5.5s;max-width:min(340px,70vw);line-height:1.15}   /* gợi ý ván đầu: ở lại lâu hơn (CFG.hints.life) */
 .toast img{width:22px;height:22px}
 @keyframes toastA{0%{opacity:0;transform:translateX(24px)}8%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
 /* thẻ đợt mới lúc nghỉ giữa đợt */

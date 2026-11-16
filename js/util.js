@@ -38,19 +38,20 @@ function reportError(msg) {
   showErrBox();
 }
 function showErrBox() {
+  if (errBox.hidden === errBox.last) return;   // đã bấm Bỏ qua lỗi này: lỗi lặp mỗi khung hình không mở lại hộp
   let el = document.getElementById('errBox');
   if (!el) {
     el = document.createElement('div'); el.id = 'errBox'; el.setAttribute('role', 'alert');
     el.innerHTML = '<b>Có lỗi xảy ra</b><span></span><div><button class="btn" id="errReload" type="button">Tải lại</button><button class="btn ghost" id="errHide" type="button">Bỏ qua</button></div>';
     document.body.append(el);
     el.querySelector('#errReload').addEventListener('click', () => location.reload());
-    el.querySelector('#errHide').addEventListener('click', () => el.classList.remove('show'));
+    el.querySelector('#errHide').addEventListener('click', () => { errBox.hidden = errBox.last; el.classList.remove('show'); });
   }
   el.querySelector('span').textContent = errBox.last + (errBox.n > 1 ? ` (×${errBox.n})` : '');
   el.classList.add('show');
   try { if (typeof G !== 'undefined' && G.state === 'play' && typeof togglePause === 'function') togglePause(); } catch {}
 }
-addEventListener('error', e => reportError(e.message || (e.error && e.error.message)));
+addEventListener('error', e => { if (e.filename) reportError(e.message || (e.error && e.error.message)); });   // không có tên file = script ngoài (tiện ích trình duyệt): bỏ qua
 addEventListener('unhandledrejection', e => reportError('Promise: ' + ((e.reason && e.reason.message) || e.reason)));
 const fmtTime = t => { const s = Math.floor(t); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 

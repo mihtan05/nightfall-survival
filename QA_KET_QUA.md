@@ -30,7 +30,7 @@ Sắp theo Mức rồi Loại. Cột Trạng thái: `C?` = phase thực hiện �
 | Q-016 | S4 | UX | prefers-reduced-motion không tắt rung màn hình (chỉ theo nút Rung) | bật giảm chuyển động | data.js:49, game.js:417 | mở · C5 |
 | Q-017 | S4 | UX | Chữ < 12 px: sổ tay small 11 px, menu small 11,7 px; ★ chấm tiến hoá tương phản 2.0 | mở sổ tay / thẻ | auditAll + đo màu | đã sửa (C2) |
 | Q-026 | S4 | UX | Thẻ vũ khí mới (cấp 1) chỉ tả hành vi, không có số (orbit, lightning, knife, aura, nova) | rút thẻ vũ khí chưa có | UPGRADES desc(1) | mở · C4 |
-| Q-027 | S4 | UX | Menu nhắc lướt né nhưng không nhắc tiến hoá; người mới chỉ biết qua dòng công thức trên thẻ | đọc chữ menu | index.html:49 | mở · C4 |
+| Q-027 | S4 | UX | Menu nhắc lướt né nhưng không nhắc tiến hoá; người mới chỉ biết qua dòng công thức trên thẻ | đọc chữ menu | index.html:49 | đã sửa (C4: gợi ý tiến hoá trong ván) |
 | Q-031 | S4 | UX | localStorage đầy/bị chặn: store.set nuốt lỗi, tiến trình không lưu mà không báo người chơi | Storage.setItem ném lỗi | util.js:21 | đã sửa (C1) |
 | Q-032 | S4 | AUD | Ẩn tab: nhạc không dừng, chỉ nhỏ 60% + lọc 650 Hz (AudioContext vẫn chạy) | ẩn tab giữa ván | ctx running, musicGain 0.36 | mở · C7 |
 | Q-033 | S4 | AUD | Không có âm phản hồi khi: lướt lúc chưa hồi, đổi thẻ hết lượt, mua thiếu linh hồn, mở tạm dừng | bọc SFX.play, gọi từng sự kiện | 4 sự kiện "—" | mở · C7 |
@@ -67,4 +67,5 @@ A7: phản hồi âm đúng tên cho trúng đòn/hạ quái/ngọc/lên cấp/c
 C1: Q-007, Q-029, Q-030, Q-031 đã sửa; B3 (hộp báo lỗi), B4 (`window.VER`), B5 (ui.js → 5 file) xong; V6-3 thêm; runChecks 57/57
 C2: HUD co giãn `--ui` (zoom #hud, 1280×720 = 1, tối đa 2); màn kết thúc 2 cột ở rộng ≥ 900, thua thì hàng nút dính đáy, điện thoại gọn (3 vũ khí, 4 ô số); chữ ≥ 12 px; ★ #a08a5c; V6-4 thêm; runChecks 58/58 ở 1920×1080, 1366×768, 2000×911, 1280×600, 768×1024, 375×812, 812×375 + pane 613×575
 C3: bot 20 ván lưu trắng: qua boss 1/2/3 = 20/20/14, thắng 11/20; báo trước ≥ `CFG.teleMin` 0,4 s; máu quái +0,33/phút; quái thường/kỹ năng boss đổi dmg (golem 10, slam 30, meteor 26…); orbit 7, aura 4/60; `metaCost` 30–320, 15 quái/linh hồn; khởi đầu 120 s: mọi vũ khí ≥ 111 quái; V6-5 thêm; runChecks 59/59 ở 1280×720 (pane bị ẩn → rAF dừng thì V6-3 trượt; pane 387×212 thì thẻ tiến hoá phải cuộn); `hitAudit` nay cuộn cả phần tử bị vùng cuộn cắt. Chưa đạt: Q-021 (6–11%), Q-023
+C4 + C8: gợi ý ván đầu `HINTS` (di chuyển sau 1 s → ngọc → vùng đỏ → tiến hoá) + thẻ tên Quỷ nổ/Nhớt mẹ/Kỵ sĩ xương lần đầu ở gần, lưu `META.hints`, mỗi cái một lần; ngoại tuyến: `sw.js` (mạng trước, mất mạng lấy kho `nfs-v1`), `manifest.webmanifest`, icon 192/512 — tắt máy chủ rồi tải lại: vào ván, 32 âm + 2 nhạc; hộp báo lỗi bỏ qua lỗi không có tên file và không mở lại sau "Bỏ qua"; V6-6, V6-7 thêm; runChecks 61/61 ở 1280×720; VER v6k
 A8: 34 dòng, sắp theo mức; S1 1 (đã sửa) · S3 13 · S4 14 · chưa chấm 6 (CẦN NGƯỜI THẬT / CHƯA KIỂM)

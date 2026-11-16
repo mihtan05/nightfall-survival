@@ -64,6 +64,7 @@ window.runChecks = async function () {
   const wait = ms => new Promise(r => setTimeout(r, ms));
   // Giữ nguyên tiến trình thật của người chơi: sao lưu META + localStorage, trả lại ở cuối
   const metaAll = JSON.stringify(META), lsKeys = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_stat', 'vs_stat_nm', 'vs_start'], lsAll = lsKeys.map(k => [k, localStorage.getItem(k)]);
+  CFG.hints.on = false;   // gợi ý ván đầu (C4) không chen vào hàng thông báo của các tiêu chí khác; V6-6 gọi checkHints trực tiếp
   const fresh = () => { ['over', 'levelup', 'paused', 'menu'].forEach(id => document.getElementById(id).classList.remove('show')); startGame(); G.enemies.clear(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9; };
 
   // ---- Giai đoạn 0: input ----
@@ -489,6 +490,28 @@ window.runChecks = async function () {
     ok('V6-5', '5.1 Báo trước kỹ năng boss ≥ CFG.teleMin kể cả nổi giận + cuồng nộ tối đa; ván thua 3 phút/150 quái đủ ≥ 1/3 nâng cấp đầu',
       !short.length && s3 * 3 >= CFG.metaCost[0], `${short.join(', ') || 'mọi kỹ năng ≥ ' + CFG.teleMin + ' s'}; 150 quái → ${s3} linh hồn, bậc đầu ${CFG.metaCost[0]}`);
   }
+  { // ---- V6-6 (C4): gợi ý ván đầu + thẻ tên quái đặc biệt, mỗi cái đúng một lần ----
+    META.hints = []; fresh(); toastQ.length = 0; G.t = 0.5; checkHints(); const early = toastQ.length;
+    G.t = 1.2; checkHints(); const afterMove = toastQ.map(t => t.id).join();
+    dropGem(P().x + 30, P().y, 1); addZone(P().x + 300, P().y, 30, 2, 1); v.give('bolt', 3); P().levels.might = 1; spawnEnemy('bomber', P().x + 60, P().y); spawnEnemy('charger', P().x + 900, P().y);
+    checkHints(); checkHints(); const ids = toastQ.map(t => t.id).sort().join(), evoTxt = (toastQ.find(t => t.id === 'hint:evo') || {}).text || '';
+    showToast(toastQ[0]); const shown = !!document.querySelector('#toasts .toast.hint'); document.getElementById('toasts').replaceChildren();
+    const saved = (store.get('vs_meta', {}).hints || []).length;
+    fresh(); G.t = 5; dropGem(P().x + 30, P().y, 1); addZone(P().x + 300, P().y, 30, 2, 1); spawnEnemy('bomber', P().x + 60, P().y); checkHints(); const again = toastQ.length;
+    G.zones.length = 0;
+    ok('V6-6', '6.1 Gợi ý: di chuyển (sau 1 s) → ngọc → vùng đỏ → tiến hoá + thẻ tên quái đặc biệt ở gần; mỗi cái một lần, lưu ngay, ván sau không hiện lại',
+      early === 0 && afterMove === 'hint:move' && ids === 'hint:bomber,hint:dash,hint:evo,hint:gem,hint:move' && /cấp 8/.test(evoTxt) && shown && saved === 5 && again === 0,
+      `sớm ${early}, sau 1 s "${afterMove}", đủ "${ids}", "${evoTxt}", hiện ${shown}, lưu ${saved}, ván sau ${again}`);
+  }
+  { // ---- V6-7 (C8): chơi ngoại tuyến — worker đã đăng ký và kho đã có trang + mã game ----
+    const sw = 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration();
+    const hit = async u => !!(await caches.match(u, { ignoreSearch: true }));
+    const got = sw ? await Promise.all([location.pathname, 'js/game.js', 'css/game.css', 'assets/atlas.png'].map(hit)) : [];
+    const man = await fetch('manifest.webmanifest').then(r => r.json()).catch(() => null);
+    ok('V6-7', '7.1 Ngoại tuyến: service worker đã đăng ký, kho lưu có trang + js + css + atlas; manifest có tên và 2 icon',
+      sw && got.length === 4 && got.every(Boolean) && man && man.name === 'Nightfall: Survival' && man.icons.length === 2, `worker ${!!sw}, kho ${got.map(x => +x).join('')}, manifest ${man ? man.name : 'thiếu'}`);
+  }
+  CFG.hints.on = true;
   for (const k of Object.keys(META)) delete META[k];
   Object.assign(META, JSON.parse(metaAll));
   for (const [k, val] of lsAll) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);

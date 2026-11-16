@@ -105,16 +105,26 @@ function bestPassed() {
 }
 function checkToasts(now) {
   if (G.state !== 'play' || !G.player) return;
-  if (now >= toastCheckT) { toastCheckT = now + 250; for (const T of TOASTS) if (!toastDone.has(T.id) && T.test()) { toastDone.add(T.id); toastQ.push(T); } checkMissions(); }
+  if (now >= toastCheckT) { toastCheckT = now + 250; for (const T of TOASTS) if (!toastDone.has(T.id) && T.test()) { toastDone.add(T.id); toastQ.push(T); } checkMissions(); if (CFG.hints.on) checkHints(); }
   if (toastQ.length && now >= toastNext && G.t - G.calloutT >= 0.5 && !cere.on) { showToast(toastQ.shift()); toastNext = now + CFG.toast.gap * 1000; }
 }
+// C4: gợi ý ván đầu + thẻ tên quái đặc biệt lần đầu gặp — hiện một lần rồi lưu ngay (ván sau không hiện lại)
+function checkHints() {
+  const add = (id, text) => { META.hints.push(id); saveMeta(); toastQ.push({ id: 'hint:' + id, hint: true, text }); };
+  for (const H of HINTS) if (!META.hints.includes(H.id) && H.test()) add(H.id, typeof H.text === 'function' ? H.text() : H.text);
+  const p = G.player, n2 = CFG.hints.near ** 2;
+  for (const e of G.enemies.items) {
+    const d = ENEMIES[e.type];
+    if (d.hint && !d.boss && !META.hints.includes(e.type) && (e.x - p.x) ** 2 + (e.y - p.y) ** 2 < n2) add(e.type, `${srcName(e.type)}: ${d.hint}`);
+  }
+}
 function showToast(T) {
-  const box = $('toasts'), d = mkEl('div', 'toast' + (T.gold ? ' gold' : ''));
+  const box = $('toasts'), d = mkEl('div', 'toast' + (T.gold ? ' gold' : '') + (T.hint ? ' hint' : ''));
   if (T.icon) d.append(iconEl(T.icon, WEAPONS[T.icon] ? WEAPONS[T.icon].icon : ''));
   d.append(mkEl('span', '', typeof T.text === 'function' ? T.text() : T.text));
   box.append(d); while (box.children.length > CFG.toast.max) box.firstChild.remove();
   SFX.play(String(T.id).startsWith('mis') ? 'mission' : 'milestone');
-  setTimeout(() => d.remove(), CFG.toast.life * 1000);
+  setTimeout(() => d.remove(), (T.hint ? CFG.hints.life : CFG.toast.life) * 1000);
 }
 // Nghỉ giữa đợt: thẻ tên đợt sắp tới (trong lúc nền đợt mới hiện dần)
 let waveCardFor = -1;

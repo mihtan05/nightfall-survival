@@ -29,6 +29,7 @@ function normMeta(m) {
   if (!Array.isArray(m.book)) m.book = [];
   if (!Array.isArray(m.missions)) m.missions = [];
   if (!Array.isArray(m.skins)) m.skins = ['wizard'];
+  if (!Array.isArray(m.hints)) m.hints = [];
   m.missions = m.missions.filter(x => x && MISSIONS.some(d => d.id === x.id));
   // Bản lưu sửa tay / hỏng: kẹp số về khoảng hợp lệ (Q-030)
   const num = v => Number.isFinite(+v) ? Math.floor(+v) : 0;

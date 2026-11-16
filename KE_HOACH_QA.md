@@ -249,8 +249,8 @@ Xếp theo ưu tiên (P1 nên làm ngay, P3 để sau). "Căn cứ" là thứ đ
 ### Người chơi mới
 | ID | Ưu tiên | Đề xuất | Căn cứ | Phase |
 |---|---|---|---|---|
-| B16 | P1 | Gợi ý theo ngữ cảnh trong ván đầu (di chuyển → nhặt ngọc → lướt khi có vùng đỏ → tiến hoá khi đủ điều kiện), mỗi gợi ý hiện một lần | Hướng dẫn hiện chỉ là dòng chữ ở menu | C4 |
-| B17 | P2 | Lần đầu gặp mỗi loại quái đặc biệt: thẻ tên 1 dòng (đã có cho boss qua `hint`) | `ENEMIES.*.hint` chỉ có ở boss | C4 |
+| ~~B16~~ | ~~P1~~ | ~~Gợi ý theo ngữ cảnh trong ván đầu (di chuyển → nhặt ngọc → lướt khi có vùng đỏ → tiến hoá khi đủ điều kiện), mỗi gợi ý hiện một lần~~ | Đã làm ở C4 (`HINTS`, V6-6) | C4 |
+| ~~B17~~ | ~~P2~~ | ~~Lần đầu gặp mỗi loại quái đặc biệt: thẻ tên 1 dòng (đã có cho boss qua `hint`)~~ | Đã làm ở C4 (`ENEMIES.*.hint` cho bomber/splitter/charger) | C4 |
 
 ### Điều khiển và trợ năng
 | ID | Ưu tiên | Đề xuất | Căn cứ | Phase |
@@ -274,7 +274,7 @@ Xếp theo ưu tiên (P1 nên làm ngay, P3 để sau). "Căn cứ" là thứ đ
 ### Phát hành
 | ID | Ưu tiên | Đề xuất | Căn cứ | Phase |
 |---|---|---|---|---|
-| B25 | P3 | Chơi ngoại tuyến + cài như ứng dụng (manifest, service worker), favicon, trang GitHub Pages | Chưa có manifest | C8 |
+| ~~B25~~ | ~~P3~~ | ~~Chơi ngoại tuyến + cài như ứng dụng (manifest, service worker), favicon, trang GitHub Pages~~ | Đã làm ở C8 (manifest, `sw.js`, icon; V6-7). Phát hành trên Vercel thay GitHub Pages | C8 |
 
 ---
 

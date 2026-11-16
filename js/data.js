@@ -155,11 +155,11 @@ const ENEMIES = {
   ghost:    { hp: 18,  speed: 62,  dmg: 8,  r: 11, xp: 4, mass: 0.8, color: '#9b7bd1', cap: 6, ranged: { range: 200, cd: 3.4, speed: 150, dmg: 6 } },
   golem:    { hp: 95,  speed: 38,  dmg: 10, r: 18, xp: 8, mass: 4,   color: '#b8956a' },
   // Quỷ nổ: lao nhanh, tới gần (hoặc bị hạ) thì nổ thành vùng sát thương — vùng này cũng làm hại quái
-  bomber:   { hp: 10,  speed: 125, dmg: 0,  r: 10, xp: 3, mass: 0.6, color: '#ff9a3d', cap: 8, bomb: { near: 46, r: 40, delay: 0.55, dmg: 14, enemyDmg: 30 } },
+  bomber:   { hint: 'tới gần là nổ — tránh vòng đỏ', hp: 10,  speed: 125, dmg: 0,  r: 10, xp: 3, mass: 0.6, color: '#ff9a3d', cap: 8, bomb: { near: 46, r: 40, delay: 0.55, dmg: 14, enemyDmg: 30 } },
   // Nhớt mẹ: chết thì tách thành 3 nhớt con
-  splitter: { hp: 70,  speed: 40,  dmg: 10, r: 18, xp: 4, mass: 3,   color: '#8a6d64', split: { type: 'slime', n: 3, kb: 120 } },
+  splitter: { hint: 'chết thì tách thành 3 nhớt con', hp: 70,  speed: 40,  dmg: 10, r: 18, xp: 4, mass: 3,   color: '#8a6d64', split: { type: 'slime', n: 3, kb: 120 } },
   // Kỵ sĩ xương: dừng lại báo trước (vạch đỏ) rồi lao thẳng
-  charger:  { hp: 45,  speed: 60,  dmg: 12, r: 12, xp: 5, mass: 1.5, color: '#c0603a', cap: 6, charge: { min: 70, max: 190, tele: 0.5, dur: 0.4, speed: 380, cd: 4, len: 150 } },
+  charger:  { hint: 'đứng lại rồi lao thẳng theo vạch đỏ', hp: 45,  speed: 60,  dmg: 12, r: 12, xp: 5, mass: 1.5, color: '#c0603a', cap: 6, charge: { min: 70, max: 190, tele: 0.5, dur: 0.4, speed: 380, cd: 4, len: 150 } },
   crate:    { hp: 1,   speed: 0,   dmg: 0,  r: 9,  xp: 0, mass: 99,  color: '#a8743e', prop: true }, // thùng gỗ phá được
 
   /* Boss cuối mỗi đợt. skills: tên kỹ năng trong BOSS_SKILLS (lặp tên = hay dùng hơn); summon: lâu la gọi ra.
@@ -473,6 +473,15 @@ const WINDUP_CUES = {
 };
 CFG.toast = { gap: 1, life: 2.8, max: 3 }; // thông báo mốc bên phải màn hình: cách nhau ít nhất gap giây, tối đa max cái cùng lúc
 /* Thông báo mốc (không chặn chơi). test() đọc trạng thái ván; mỗi id chỉ hiện một lần mỗi ván. */
+// C4: gợi ý theo ngữ cảnh — mỗi cái hiện đúng MỘT lần (mã lưu ở META.hints, cùng chỗ với thẻ tên quái đặc biệt ENEMIES.*.hint)
+CFG.hints = { on: true, life: 5.5, near: 200 };   // on: tắt khi chạy kiểm; near: quái đặc biệt cách người chơi dưới chừng này mới giới thiệu
+const evoNear = () => Object.keys(EVOLUTIONS).find(id => G.player.levels[id] >= 1 && G.player.levels[id] <= 8 && G.player.levels[EVOLUTIONS[id].passive] >= 1);
+const HINTS = [
+  { id: 'move', text: 'WASD / kéo ngón tay để di chuyển · vũ khí tự bắn', test: () => G.t >= 1 },
+  { id: 'gem',  text: 'Nhặt ngọc để lên cấp', test: () => G.gems.items.some(g => g.kind === 'xp') },
+  { id: 'dash', text: 'Vùng đỏ sắp nổ! Space / nút tròn để lướt né', test: () => G.zones.length > 0 },
+  { id: 'evo',  text: () => { const id = evoNear(), E = EVOLUTIONS[id]; return `${WEAPONS[id].name} cấp 8 + ${PASSIVES.find(p => p.id === E.passive).name} cấp ${CFG.evo.passiveLvl} → thẻ TIẾN HOÁ ${E.name}`; }, test: () => !!evoNear() },
+];
 const TOASTS = [
   { id: 'k100',  text: 'Hạ 100 quái',  test: () => G.kills >= 100 },
   { id: 'k500',  text: 'Hạ 500 quái',  test: () => G.kills >= 500 },

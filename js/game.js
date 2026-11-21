@@ -5,7 +5,7 @@
 const G = {
   state: 'menu', t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
   boss: null, won: false, chestOpen: false, typeCount: {}, stepId: 0, stats: newStats({}), cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1,
-  hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0, zapFlashA: 0, freezeT: 0, combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0,
+  hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0, zapFlashA: 0, freezeT: 0, combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, flashT: 0, flashColor: '#fff', crateT: 0, diffT: 0, lvlWait: 0, dmgAvg: 0,
   wave: { i: 0, phase: 'fight', t: 0, evIdx: 0, announced: false },
   player: null,
   sfx: new Pool(() => ({})),
@@ -101,7 +101,7 @@ function resetWorld() {
     t: 0, kills: 0, level: 1, xp: 0, xpNeed: CFG.xpFor(1), pending: 0, spawnAcc: 0, shake: 0,
     boss: null, won: false, chestOpen: false, typeCount: {}, hitStop: 0, warns: [], zones: [], decals: [], zapFlash: 0,
     combo: 0, comboT: 0, comboStep: 0, comboEnd: 0, calloutT: -9, chests: 0,
-    freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0,
+    freezeT: 0, flashT: 0, crateT: CFG.crates.every, diffT: 0, lvlWait: 0, dmgAvg: 0,
     cine: null, slowT: 0, booms: [], gainT: 0, gemStreak: 0, gemLast: -1, rerolls: CFG.rerolls + metaRoll(metaLv('roll')).rerolls,
     stats: newStats({ [SETUP.start]: 0 }), bookNew: [], bookSeen: Object.fromEntries(META.book.map(k => [k, true])), misDone: [], freshSkins: [],
     nm: SETUP.nm, easy: SETUP.easy && !SETUP.nm, endless: false, bossKills: 0, evolved: false, soulsGiven: 0, endDefs: {}, novaFreeAt: 0, healT0: -9, healAmt: 0,
@@ -132,7 +132,7 @@ function spawnEnemy(type, x, y) {
   e.maxHp = e.hp = def.hp * (def.prop ? 1 : def.boss ? modeHp : hpMul); e.dmg = def.dmg * dm; e.xp = def.xp; e.dmgScale = dm;
   e.shotDmg = def.ranged ? def.ranged.dmg * dm : 0;
   e.shootT = def.ranged ? rand(1, def.ranged.cd) : 2.5;
-  e.flash = 0; e.kx = 0; e.ky = 0; e.anim = Math.random() * 10; e.face = 1; e.orbCd = 0; e.auraCd = 0;
+  e.flash = 0; e.pop = 0; e.kx = 0; e.ky = 0; e.anim = Math.random() * 10; e.face = 1; e.orbCd = 0; e.auraCd = 0;
   e.tele = false; e.warned = false; e.txt = null; e.frozen = false; e.fade = 0; e.skill = null; e.stunT = 0; e.slowT = 0; e.raged = false; e.sc = 1; e.elite = false; e.chPhase = 0; e.chT = rand(1, 3); e.chDir = 0;
   e.hpLag = 0; e.inT = Math.abs(x - p.x) < VW / 2 && Math.abs(y - p.y) < VH / 2 ? CFG.spawnIn : 0; // sinh ngay trong tầm nhìn → hiện dần (chỉ là hình ảnh)
   return e;
@@ -218,7 +218,7 @@ function updateWave(dt) {
 function spawnBoss(type) {
   const def = ENEMIES[type], e = spawnEnemy(type);
   e.skillCd = {}; e.skill = null; e.nextSkill = 2; e.age = 0; e.haste = 0; e.used2 = false;
-  G.boss = e; addShake(8); SFX.play('boss', { x: e.x });
+  G.boss = e; addShake(8); SFX.play('boss', { x: e.x, y: e.y });
   G.cine = { t: CFG.cine.dur, x: e.x, y: e.y };
   showBossCard(def);
   setBossName(def.name);
@@ -283,7 +283,7 @@ function updateBoss(e, def, dt) {
   if (!e.raged && e.hp < e.maxHp * 0.5) { // nổi giận: khoảnh khắc riêng để người chơi nhận ra
     e.raged = true; hitStop(0.12); addShake(8);
     const f = addFx('ring', e.x, e.y, 0.35); f.maxR = 140; f.color = '#ff3b5c';
-    banner(def.name, 'NỔI GIẬN!'); SFX.play('warn', { x: e.x });
+    banner(def.name, 'NỔI GIẬN!'); SFX.play('warn', { x: e.x, y: e.y });
   }
   // cuồng nộ dần: trận kéo dài thì boss nhanh hơn (hồi chiêu, báo trước ngắn lại)
   const ER = CFG.enrage; e.age += dt;
@@ -305,7 +305,7 @@ function updateBoss(e, def, dt) {
     if (sk.id === 'ring') {
       const off = Math.random() * TAU;
       for (let i = 0; i < S.n; i++) enemyShoot(e.x, e.y, off + i * TAU / S.n, S.speed, S.dmg * e.dmgScale);
-      SFX.play('eshoot', { x: e.x });
+      SFX.play('eshoot', { x: e.x, y: e.y });
     } else if (sk.id === 'summon') {
       const sm = def.summon;
       for (let i = 0; i < sm.n; i++) {
@@ -346,14 +346,14 @@ function updateBoss(e, def, dt) {
 // Vòng đạn có khe hở `S.hole` viên bắt đầu từ chỉ số `hole`
 function wallRing(e, S, hole) {
   for (let i = 0; i < S.n; i++) { if ((i - hole + S.n) % S.n < S.hole) continue; enemyShoot(e.x, e.y, i * TAU / S.n, S.speed, S.dmg * e.dmgScale); }
-  SFX.play('eshoot', { x: e.x });
+  SFX.play('eshoot', { x: e.x, y: e.y });
 }
 // rings: bắn vòng thứ sk.k khi tới lượt (mỗi S.every giây), mỗi vòng lệch nửa bước so với vòng trước
 function ringsStep(e, S, sk) {
   while (sk.k < S.k && S.dur - Math.max(0, sk.t) >= sk.k * S.every - 1e-9) {
     const off = sk.off + sk.k * Math.PI / S.n;
     for (let i = 0; i < S.n; i++) enemyShoot(e.x, e.y, off + i * TAU / S.n, S.speed, S.dmg * e.dmgScale);
-    sk.k++; SFX.play('eshoot', { x: e.x });
+    sk.k++; SFX.play('eshoot', { x: e.x, y: e.y });
   }
 }
 
@@ -363,7 +363,7 @@ function addZone(x, y, r, delay, dmg, hurtE = 0) { G.zones.push({ x, y, r, t: de
 // Quỷ nổ phát nổ: tạo vùng báo trước rồi biến mất
 function bomberBlast(e) {
   const B = ENEMIES[e.type].bomb; addZone(e.x, e.y, B.r, B.delay, B.dmg * e.dmgScale, B.enemyDmg);
-  playFx('puff', e.x, e.y + 6); SFX.play('warn', { x: e.x });
+  playFx('puff', e.x, e.y + 6); SFX.play('warn', { x: e.x, y: e.y });
 }
 // Kỵ sĩ xương: 0 đi bộ → 1 báo trước (đứng yên, vạch đỏ) → 2 lao thẳng. Trả về [hệ số di chuyển, tốc độ lao hoặc 0]
 function updateCharger(e, C, d, dx, dy, dt) {
@@ -393,7 +393,7 @@ function updateZones(dt) {
       for (let j = 0; j < tmp.length; j++) { const e = tmp[j]; if (!e.dead && !e.prop && Math.hypot(e.x - z.x, e.y - z.y) < z.r + e.r) hitEnemy(e, z.hurtE, e.x - z.x, e.y - z.y, 1, null, 'zone'); }
     }
     playFx('boom', z.x, z.y + z.r * 0.3); burst(z.x, z.y, '#ff9a3d', 10, 160, 3, 0.4);
-    addShake(3); SFX.play('slam', { x: z.x });
+    addShake(3); SFX.play('slam', { x: z.x, y: z.y });
     G.zones.splice(i, 1);
   }
 }
@@ -401,7 +401,7 @@ function updateZones(dt) {
 function updateBooms(dt) {
   for (let i = G.booms.length - 1; i >= 0; i--) {
     const b = G.booms[i]; if ((b.t -= dt) > 0) continue;
-    playFx('boom', b.x, b.y); burst(b.x, b.y, '#ffd166', 10, 160, 3, 0.5); addShake(4); SFX.play('slam', { x: b.x });
+    playFx('boom', b.x, b.y); burst(b.x, b.y, '#ffd166', 10, 160, 3, 0.5); addShake(4); SFX.play('slam', { x: b.x, y: b.y });
     if (b.chest) dropPickup(b.cx, b.cy, 'chest', 0);
     G.booms.splice(i, 1);
   }
@@ -487,7 +487,8 @@ function hurtPlayer(dmg, src = '?') {
 // Lướt né theo hướng đang bấm (không bấm thì theo hướng vừa đi); bất tử trong lúc lướt
 function tryDash() {
   const p = G.player, D = CFG.dash;
-  if (G.state !== 'play' || !p || p.dashCd > 0 || p.dashT > 0) return false;
+  if (G.state !== 'play' || !p) return false;
+  if (p.dashCd > 0 || p.dashT > 0) { SFX.play('deny'); return false; }
   const v = inputVec(); let dx = v.x, dy = v.y;
   if (!dx && !dy) { dx = p.dirX; dy = p.dirY; }
   const l = Math.hypot(dx, dy) || 1;
@@ -524,6 +525,7 @@ function updateEnemies(dt) {
     let dx = p.x - e.x, dy = p.y - e.y;
     const d = Math.hypot(dx, dy) || 1;
     if (e.inT > 0) e.inT -= dt;
+    if (e.pop > 0) e.pop = Math.max(0, e.pop - dt);
     if (e.elite) e.hpLag = e.hpLag > e.hp ? e.hpLag + (e.hp - e.hpLag) * Math.min(1, dt * CFG.barLag) : e.hp;
     if (e.prop) { if (d > far * 1.3) e.dead = true; e.flash -= dt; continue; } // thùng gỗ: đứng yên, xa quá thì bỏ
     if (d > far && !e.boss) { // quái bị bỏ xa: đưa lại vòng spawn
@@ -553,7 +555,7 @@ function updateEnemies(dt) {
       if (d < R * 0.55) { mx = -mx * 0.5; my = -my * 0.5; } else if (d < R * 0.85) { mx *= 0.15; my *= 0.15; }
       e.shootT -= dt;
       e.tele = e.shootT < 0.3 && d < R + 60; // báo trước 0.3 giây: quả cầu tím tụ trên đầu
-      if (e.shootT <= 0 && d < R + 60) { e.shootT = def.ranged.cd * rand(0.8, 1.2); e.tele = false; enemyShoot(e.x, e.y, Math.atan2(dy, dx), def.ranged.speed, e.shotDmg); SFX.play('eshoot', { x: e.x }); }
+      if (e.shootT <= 0 && d < R + 60) { e.shootT = def.ranged.cd * rand(0.8, 1.2); e.tele = false; enemyShoot(e.x, e.y, Math.atan2(dy, dx), def.ranged.speed, e.shotDmg); SFX.play('eshoot', { x: e.x, y: e.y }); }
     }
     if (e.boss) { mv = updateBoss(e, def, frozen ? dt * 0.5 : dt); if (frozen) spd *= 0.5; }
     // tách quái để không chồng lên nhau
@@ -658,7 +660,7 @@ function strike(x, y, dmg, aoe, src = 'lightning', w = null) {
   }
   burst(x, y, '#bfe6ff', L.parts, 160, 2.5, 0.35);
   addShake(1.5);
-  SFX.play('zap', { x, tier });
+  SFX.play('zap', { x, y, tier });
 }
 
 function addText(x, y, txt, color) {
@@ -683,6 +685,10 @@ function addDmgText(e, dmg) {
     t0.x = e.x; styleDmg(t0); return;
   }
   if (G.texts.items.length >= CFG.textCap || !SETTINGS.dmgNum) return;
+  const D = CFG.dmgNum;
+  G.dmgAvg += (dmg - G.dmgAvg) * D.ema;
+  let live = 0; for (const t of G.texts.items) if (t.num && !t.dead) live++;
+  if (live >= D.max || (live >= D.busy && dmg < D.keep * G.dmgAvg)) return;
   const t = G.texts.get();
   t.owner = e; e.txt = t; t.v = dmg; t.txt = Math.round(dmg);
   t.x = e.x + rand(-4, 4); t.y = e.y - e.r; t.life = 0.6; t.pop = 0.12; t.vx = rand(-8, 8); t.num = true;
@@ -725,18 +731,18 @@ function hitEnemy(e, dmg, kx, ky, kb = 1, fx = null, src = '?', fxk = 1) {
   if (e.dead) return;
   if (!e.prop) G.stats.dmg[src] = (G.stats.dmg[src] || 0) + Math.min(dmg, Math.max(0, e.hp));
   if (e.prop) { e.hp -= dmg; e.flash = 0.1; if (e.hp <= 0) killEnemy(e); return; }
-  e.hp -= dmg; e.flash = 0.1;
+  e.hp -= dmg; e.flash = 0.1; e.pop = CFG.juice.pop;
   const l = Math.hypot(kx, ky) || 1; e.kx += kx / l * 90 * kb / e.mass; e.ky += ky / l * 90 * kb / e.mass;
   if (fx) playFx(fx, e.x + rand(-3, 3), e.y - e.r * 0.2, fx === 'arrowHit' ? Math.atan2(ky, kx) : 0, null, 0, fxk);
   addDmgText(e, dmg);
   if (e.hp <= 0) { G.stats.kby[src] = (G.stats.kby[src] || 0) + 1; killEnemy(e); }
-  else { SFX.play('hit', { x: e.x }); if (G.parts.items.length < CFG.partCap * 0.6) burst(e.x, e.y, ENEMIES[e.type].color, 2, 90, 2, 0.25); }
+  else { SFX.play('hit', { x: e.x, y: e.y }); if (G.parts.items.length < CFG.partCap * 0.6) burst(e.x, e.y, ENEMIES[e.type].color, 2, 90, 2, 0.25); }
 }
 
 function killEnemy(e) {
   e.dead = true;
   if (e.prop) { // thùng gỗ: không tính là quái hạ, luôn rơi một vật phẩm
-    playFx('puff', e.x, e.y + 6); burst(e.x, e.y, ENEMIES.crate.color, 10, 120, 3, 0.4); SFX.play('crate', { x: e.x });
+    playFx('puff', e.x, e.y + 6); burst(e.x, e.y, ENEMIES.crate.color, 10, 120, 3, 0.4); SFX.play('crate', { x: e.x, y: e.y });
     dropPickup(e.x, e.y, rollItem(), 0);
     return;
   }
@@ -760,7 +766,7 @@ function killEnemy(e) {
     G.slowT = D.slow; G.flashT = 0.2; G.flashColor = '#ffffff';
     if (G.boss === e) { G.boss = G.enemies.items.find(x => x.boss && !x.dead && x !== e) || null; if (G.boss) setBossName(ENEMIES[G.boss.type].name); }   // còn boss thứ hai (Song sát)
     G.bossKills++;
-    addShake(CFG.shakeMax); hitStop(CFG.hitStop.boss); SFX.play('bossdie', { x: e.x });
+    addShake(CFG.shakeMax); hitStop(CFG.hitStop.boss); SFX.play('bossdie', { x: e.x, y: e.y });
   } else {
     const big = e.r > 15;
     playFx(big ? 'boom' : 'puff', e.x, e.y + e.r * 0.6);
@@ -781,7 +787,7 @@ function killEnemy(e) {
       if (G.healAmt < H.cap) { const h = Math.min(H.per, H.cap - G.healAmt); G.healAmt += h; P.hp = Math.min(P.maxHp, P.hp + h); }
     }
     if (Math.random() < CFG.itemChance * (1 + 0.05 * metaRoll(metaLv('roll')).item)) dropPickup(e.x + 10, e.y, rollItem(), 0);
-    SFX.play('kill', { rate: 1 + Math.min(CFG.combo.pitchMax, G.combo * CFG.combo.pitch), x: e.x }); // chuỗi dài: tiếng hạ quái cao dần
+    SFX.play('kill', { rate: 1 + Math.min(CFG.combo.pitchMax, G.combo * CFG.combo.pitch), x: e.x, y: e.y }); // chuỗi dài: tiếng hạ quái cao dần
   }
 }
 /* Chuỗi hạ gục (V5 Phase 7): đếm quái hạ liên tiếp, mất sau CFG.combo.window giây không hạ.

@@ -28,6 +28,8 @@ Game sinh tồn góc nhìn từ trên xuống, kiểu "bullet heaven": vũ khí 
 | V3 (`KE_HOACH_V3.md`) | Lõi game, sprite, âm thanh, boss | Xong |
 | V4 (`KE_HOACH_V4.md`) | Cảm giác đánh, nền theo đợt, lướt né, tiến hoá, tiến trình lâu dài | Xong |
 | V5 (`KE_HOACH_V5.md`) | Đồ hoạ, âm thanh, cảm giác "chơi thêm ván nữa" — 10 phase | Xong cả 10 phase |
+| V6 / QA (`KE_HOACH_QA.md`) | Lưới an toàn, bố cục co giãn, cân bằng C3, gợi ý ván đầu, tay cầm, cài đặt menu, vô tận 4 luật, mức Dễ, PWA ngoại tuyến | Xong (C1–C6, C8) |
+| V7 (`KE_HOACH_V7.md`) | Ánh sáng đêm (lightmap), luật màu, phản hồi trúng đòn, độ đậm hiệu ứng, đo bus âm thanh, nhạc thích ứng + tiếng nền, âm theo khoảng cách, 5 bản nhạc theo giai đoạn | Xong (`v7i`) |
 
 V5 gồm:
 1. Viền sprite mảnh và đều.
@@ -41,7 +43,7 @@ V5 gồm:
 9. Nhiệm vụ, sổ tay sưu tầm, menu sống động.
 10. Sprite riêng cho quái biến thể, thêm 3 nhân vật.
 
-Kiểm tra tự động: `runChecks()` đạt **54/54** tiêu chí.
+Kiểm tra tự động: `runChecks()` đạt **73/73** tiêu chí (`V1`–`V7`).
 
 **Chưa kiểm bằng người thật:**
 - Độ khó.

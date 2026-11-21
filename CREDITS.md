@@ -81,9 +81,12 @@ Tất cả gói dưới đây là **CC0** (tải ngày 2026-11-14, file gốc tr
 | | | `select_001–002` | Chọn thẻ nâng cấp |
 
 **Nhạc: Juhani Junkala — "5 Chiptunes (Action)"** — https://opengameart.org/content/5-chiptunes-action (CC0)
-- `assets/music/level1.webm` ← "Level 1" (nhạc trận thường)
+- `assets/music/level1.webm` ← "Level 1" (nhạc trận thường đợt 1–2)
 - `assets/music/level3.webm` ← "Level 3" (nhạc khi có boss)
-- Đã chuyển từ WAV 44.1 kHz (13–14 MB/bài) sang Opus/WebM 96 kbps (~0.9 MB/bài).
+- `assets/music/title.ogg` ← "Title Screen" (nhạc màn hình tiêu đề, V7 B5)
+- `assets/music/level2.ogg` ← "Level 2" (nhạc trận từ đợt 3 trở đi, V7 B5)
+- `assets/music/ending.ogg` ← "Ending" (nhạc màn kết thúc chiến thắng, V7 B5)
+- Đã chuyển từ WAV 44.1 kHz sang Opus/WebM 96 kbps (`level1`, `level3`) và Ogg Vorbis (`title`, `level2`, `ending`).
 
 ### Thêm ở V5 Phase 6 (tải ngày 2026-11-15, đều CC0, file gốc trong `vendor/audio/`)
 

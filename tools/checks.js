@@ -36,6 +36,7 @@ window.auditAll = async function () {
   const wait = ms => new Promise(r => setTimeout(r, ms)), res = [], hideAll = () => document.querySelectorAll('.overlay.show').forEach(e => e.classList.remove('show'));
   const end = async (lbl, won, setup) => { hideAll(); startGame(); G.player.hp = G.player.maxHp = 1e6; setup(); G.soulsGiven = 0; endRun(won); clearTimeout(overTimer); openEndPanel(won); finishStaging(); await wait(260); res.push(...hitAudit(lbl, $('over'))); };
   hideAll(); renderMenu(); show('menu', true); await wait(260); res.push(...hitAudit('menu', $('menu')));
+  openSettings(true); await wait(260); res.push(...hitAudit('settings', $('settings'))); openSettings(false);
   openMeta(true); await wait(260); res.push(...hitAudit('meta', $('meta'))); show('meta', false);
   openBook(true); await wait(260); res.push(...hitAudit('book', $('book'))); show('book', false);
   hideAll(); startGame(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9;
@@ -56,6 +57,42 @@ window.auditAll = async function () {
   hideAll(); $('toasts').replaceChildren();
   return res;
 };
+// Đo cân bằng phối âm hiệu ứng / nhạc trong cảnh chuẩn (4 vũ khí cấp 4, 150 skeleton, lấy mẫu busMeter mỗi 100 ms)
+window.mixProbe = async function (sec = 8) {
+  const sfxBak = SETTINGS.sfxVol, musBak = SETTINGS.musicVol, hintBak = CFG.hints.on;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const med = arr => {
+    const a = arr.slice().sort((x, y) => x - y), n = a.length;
+    return n ? (n % 2 ? a[n >> 1] : (a[(n >> 1) - 1] + a[n >> 1]) / 2) : 0;
+  };
+  const toDb = x => 20 * Math.log10(Math.max(1e-6, x));
+  try {
+    CFG.hints.on = false; SETTINGS.sfxVol = 0.8; SETTINGS.musicVol = 0.6;
+    if (SFX.ctx && SFX.ctx.state === 'suspended') await SFX.ctx.resume();
+    ['over', 'levelup', 'paused', 'menu'].forEach(id => document.getElementById(id).classList.remove('show'));
+    startGame(); G.enemies.clear(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9;
+    ['bolt', 'orbit', 'lightning', 'knife'].forEach(id => __vs.give(id, 4));
+    const p = G.player;
+    for (let i = 0; i < 150; i++) {
+      const a = i * 2.39996, r = 65 + (i % 14) * 10;
+      const e = spawnEnemy('skeleton', p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+      e.hp = e.maxHp = 1e6;
+    }
+    SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.sync(); SFX.applyVolumes();
+    await wait(200);
+    const n = Math.max(1, Math.round(sec * 10)), sfxS = [], musS = [];
+    for (let i = 0; i < n; i++) {
+      const m = SFX.busMeter();
+      sfxS.push(m.sfx); musS.push(m.music);
+      await wait(100);
+    }
+    const sfxDb = toDb(med(sfxS)), musicDb = toDb(med(musS));
+    return { sfxDb, musicDb, diff: sfxDb - musicDb };
+  } finally {
+    SETTINGS.sfxVol = sfxBak; SETTINGS.musicVol = musBak; CFG.hints.on = hintBak;
+    SFX.applyVolumes();
+  }
+};
 window.runChecks = async function () {
   const out = [], v = __vs, G = v.G;
   const ok = (gd, name, pass, detail = '') => out.push({ giai_doan: gd, tieu_chi: name, ok: !!pass, chi_tiet: String(detail) });
@@ -63,8 +100,8 @@ window.runChecks = async function () {
   const ku = (code, key = 'x') => dispatchEvent(new KeyboardEvent('keyup', { code, key }));
   const wait = ms => new Promise(r => setTimeout(r, ms));
   // Giữ nguyên tiến trình thật của người chơi: sao lưu META + localStorage, trả lại ở cuối
-  const metaAll = JSON.stringify(META), lsKeys = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_best_easy', 'vs_stat', 'vs_stat_nm', 'vs_stat_easy', 'vs_start', 'vs_clear'], lsAll = lsKeys.map(k => [k, localStorage.getItem(k)]);
-  const easyBak = SETUP.easy; SETUP.easy = false;   // mức Dễ đang bật ở menu không được làm lệch số đo
+  const metaAll = JSON.stringify(META), lsKeys = ['vs_meta', 'vs_best', 'vs_best_nm', 'vs_best_easy', 'vs_stat', 'vs_stat_nm', 'vs_stat_easy', 'vs_start', 'vs_clear', 'vs_light', 'vs_fxalpha'], lsAll = lsKeys.map(k => [k, localStorage.getItem(k)]);
+  const easyBak = SETUP.easy, lightBak = SETTINGS.light, fxAlphaBak = SETTINGS.fxAlpha; SETUP.easy = false;   // mức Dễ đang bật ở menu không được làm lệch số đo
   CFG.hints.on = false;   // gợi ý ván đầu (C4) không chen vào hàng thông báo của các tiêu chí khác; V6-6 gọi checkHints trực tiếp
   const fresh = () => { ['over', 'levelup', 'paused', 'menu'].forEach(id => document.getElementById(id).classList.remove('show')); startGame(); G.enemies.clear(); G.player.hp = G.player.maxHp = 1e6; G.xpNeed = 1e9; };
 
@@ -102,7 +139,7 @@ window.runChecks = async function () {
   ok(3, 'Hạ quỷ khổng lồ có khựng hình (hit-stop)', G.hitStop > 0, G.hitStop.toFixed(3));
 
   // ---- Giai đoạn 4: âm thanh ----
-  ok(4, 'Đã nạp SFX và 2 bài nhạc', Object.keys(SFX.bufs).length >= 8 && Object.keys(SFX.music).length === 2, `${Object.keys(SFX.bufs).length} nhóm SFX, nhạc: ${Object.keys(SFX.music).join(',') || 'chưa (cần bấm Bắt đầu để mở âm thanh)'}`);
+  ok(4, 'Đã nạp SFX và 2 bài nhạc', Object.keys(SFX.bufs).length >= 8 && Object.keys(SFX.music).length >= 2, `${Object.keys(SFX.bufs).length} nhóm SFX, nhạc: ${Object.keys(SFX.music).join(',') || 'chưa (cần bấm Bắt đầu để mở âm thanh)'}`);
   if (SFX.ctx && SFX.bufs.kill) {
     SFX.last = {}; SFX.active = {}; let started = 0; const orig = SFX.ctx.createBufferSource.bind(SFX.ctx);
     SFX.ctx.createBufferSource = () => { started++; return orig(); };
@@ -559,8 +596,130 @@ window.runChecks = async function () {
       hpE === Math.round(hpN * CFG.easy.hp) && Math.abs(dE / dN - CFG.easy.dmg) < 1e-6 && soulE === Math.floor(soulN * CFG.easy.souls) && key === 'vs_best_easy' && CFG.audio.sfxTrim < 1 && Math.abs(sg - want) < 0.02,
       `máu ${hpN} → ${hpE}, dmg ×${(dE / dN).toFixed(2)}, linh hồn ${soulN} → ${soulE}, khoá ${key}, hiệu ứng ${sg.toFixed(2)} (cần ${want.toFixed(2)})`);
   }
+  { // ---- V7-1 (A1): lớp ánh sáng đêm ----
+    const lum = (x, y) => { const d = ctx.getImageData(x, y, 8, 8).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; return s / (d.length / 4); };
+    const shot = on => { SETTINGS.light = on; light.failed = false; render(1); return [lum(cv.width / 2 - 60, cv.height / 2 + 40), lum(12, 12)]; };
+    fresh(); G.enemies.clear(); G.gems.clear(); G.shake = 0;
+    const [cOff, kOff] = shot(false), [cOn, kOn] = shot(true);
+    const sized = light.cv && light.cv.width === Math.ceil(VW) && light.cv.height === Math.ceil(VH);
+    addZone(P().x + 150, P().y - 80, 30, 2, 1); render(1); const lit = light.n;          // số đèn của khung vừa vẽ
+    G.zones.length = 0;
+    const vw0 = VW, vh0 = VH; VW = Math.round(vw0 * 0.75); VH = Math.round(vh0 * 0.75); render(1);          // giả lập đổi cỡ cửa sổ (resize() đặt VW/VH)
+    const resized = light.cv.width === Math.ceil(VW) && light.cv.height === Math.ceil(VH); VW = vw0; VH = vh0; render(1);
+    for (let i = 0; i < 40; i++) lightTick(0.1, 25); const autoOff = light.failed === true && lightOn() === false;
+    light.failed = false; light.slowT = 0; SETTINGS.light = true;
+    ok('V7-1', '1.1 Ánh sáng đêm: giữa màn gần như nguyên sáng, góc màn tối 30–75%; tắt là như cũ; canvas đèn theo cỡ thế giới kể cả sau khi đổi cỡ; khung chậm 3 giây thì tự tắt',
+      cOn / cOff >= 0.9 && kOn / kOff >= 0.3 && kOn / kOff <= 0.75 && sized && lit >= 2 && resized && autoOff,
+      `giữa ${(cOn / cOff).toFixed(2)}, góc ${(kOn / kOff).toFixed(2)}, cỡ ${sized}/${resized}, đèn ${lit}, tự tắt ${autoOff}`);
+  }
+  { // ---- V7-2 (A2): luật màu ----
+    const hue = h => { const n = parseInt(h.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn || 1;
+      const x = mx === r ? (g - b) / d % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return (x * 60 + 360) % 360; };
+    const far = h => Math.min(hue(h), 360 - hue(h));          // khoảng cách sắc độ tới đỏ 0°
+    const cols = ['bolt', 'orbit'].flatMap(id => [WEAPON_LOOK[id].col, ...WEAPON_LOOK[id].tiers.map(t => t.col)]);
+    const near = cols.filter(c => far(c) < 35);
+    const left = ['ff4d8d', 'ff3b5c', 'ff2040'].filter(c => JSON.stringify([WEAPON_LOOK, FX_STYLE]).toLowerCase().includes(c));
+    ok('V7-2', '2.1 Màu vũ khí cách màu đỏ nguy hiểm ≥ 35° sắc độ; không còn mã màu cũ trong bảng hình; vòng sáng nhân vật luôn bật',
+      !near.length && !left.length && CFG.playerRing && CFG.playerRing.a > 0 && CFG.playerRing.clear > CFG.playerRing.a, `gần đỏ: ${near.join(',') || 'không'}; mã cũ: ${left.join(',') || 'không'}`);
+  }
+  { // ---- V7-3 (A3): nảy khi trúng + bớt số sát thương khi đông ----
+    fresh(); const e = spawnEnemy('golem', P().x + 40, P().y); hitEnemy(e, 1, 0, 0);
+    const popDur = CFG.juice ? CFG.juice.pop : 0.09;
+    const popped = !!(CFG.juice && e.pop === CFG.juice.pop);
+    v.tick(popDur + 0.05); const settled = e.pop === 0;
+    const nf = SETTINGS.noFlash; SETTINGS.noFlash = true; const quiet = typeof calm === 'function' && calm() === true; SETTINGS.noFlash = nf;
+    fresh(); for (const w of ['bolt', 'orbit', 'lightning', 'knife', 'aura', 'nova']) v.give(w, 8); v.spawn(300, 'skeleton');
+    let peak = 0; for (let i = 0; i < 50; i++) { v.tick(0.1); peak = Math.max(peak, G.texts.items.filter(t => t.num).length); }
+    fresh(); const one = spawnEnemy('golem', P().x + 40, P().y); hitEnemy(one, 3, 0, 0); const few = G.texts.items.some(t => t.owner === one);
+    ok('V7-3', '3.1 Quái nảy 0,09 giây khi trúng rồi về bình thường; giảm loé thì không nảy; 300 quái + 6 vũ khí cấp 8: tối đa 60 số cùng lúc; ít quái thì đòn nào cũng có số',
+      popped && settled && quiet && peak <= 60 && few, `nảy ${popped}/${settled}, yên ${quiet}, đỉnh ${peak} số, ít quái ${few}`);
+  }
+  { // ---- V7-4 (A4): độ đậm hiệu ứng vũ khí ----
+    const k = cv.width / VW, px = (wx, wy) => { const d = ctx.getImageData(Math.round((wx - (P().x - VW / 2)) * k), Math.round((wy - (P().y - VH / 2)) * k), 4, 4).data; return d[0] + d[1] + d[2]; };
+    const fa = SETTINGS.fxAlpha, li = SETTINGS.light; SETTINGS.light = false;
+    fresh(); G.enemies.clear(); G.shake = 0; v.give('aura', 8); addZone(P().x + 120, P().y, 24, 5, 1);
+    const A = P().weapons.aura.radius * 0.7;
+    SETTINGS.fxAlpha = 0; render(1); const base = px(P().x + A, P().y), zone0 = px(P().x + 120, P().y);
+    SETTINGS.fxAlpha = 1; render(1); const full = px(P().x + A, P().y) - base;
+    SETTINGS.fxAlpha = 0.4; render(1); const dim = px(P().x + A, P().y) - base, zone1 = px(P().x + 120, P().y);
+    SETTINGS.fxAlpha = fa; SETTINGS.light = li; G.zones.length = 0;
+    ok('V7-4', '4.1 Độ đậm hiệu ứng 40%: hào quang nhạt đi ít nhất 40% so với 100%; vùng nổ không đổi',
+      full > 0 && dim <= full * 0.6 && Math.abs(zone1 - zone0) <= 6, `hào quang ${full} → ${dim}, vùng nổ ${zone0} → ${zone1}`);
+  }
+  { // ---- V7-5 (B1): mức phối hiệu ứng so với nhạc ----
+    const m = await mixProbe(8), M = CFG.audio.mix;
+    ok('V7-5', '5.1 Cảnh chuẩn 150 quái, thanh trượt mặc định: hiệu ứng nhỏ hơn hoặc bằng nhạc và không nhỏ hơn quá 9 dB',
+      m.diff <= M.hi && m.diff >= M.lo, `hiệu ứng ${m.sfxDb.toFixed(1)} dB, nhạc ${m.musicDb.toFixed(1)} dB, chênh ${m.diff.toFixed(1)} dB`);
+  }
+  { // ---- V7-6 (B2): độ căng + tiếng nền ----
+    const I = CFG.audio.intensity, step = (sec, n = 20) => { for (let i = 0; i < n; i++) SFX.updateIntensity(sec / n); return SFX.intensity; };
+    fresh(); G.enemies.clear(); SFX.intensity = 0; const calm0 = step(3);
+    v.spawn(150, 'skeleton'); v.spawnBoss('bossOgre'); G.cine = null; const hot = step(6);
+    G.enemies.clear(); G.boss = null; const hold = step(1), cool = step(14);
+    G.state = 'menu'; const menuT = SFX.intensityTarget(); G.state = 'play';
+    // đo node thật: giữ đúng hoàn cảnh để sync() trong khung hình không kéo intensity đi chỗ khác
+    v.spawn(150, 'skeleton'); v.spawnBoss('bossOgre'); G.cine = null; SFX.intensity = 1; SFX.applyVolumes(); await wait(600);
+    const lpHot = SFX.musicLP.frequency.value, ambHot = SFX.ambGain.gain.value;
+    G.enemies.clear(); G.boss = null; SFX.intensity = 0; SFX.applyVolumes(); await wait(600);
+    const lpCalm = SFX.musicLP.frequency.value, ambCalm = SFX.ambGain.gain.value;
+    ok('V7-6', '6.1 Độ căng: không quái ≈ 0; 150 quái + boss sau 6 giây > 0,9; hết quái 1 giây vẫn > 0,6 (xuống chậm), 15 giây về < 0,1; nhạc mở lọc khi căng; tiếng nền to khi yên, nhỏ khi căng',
+      calm0 < 0.05 && hot > 0.9 && hold > 0.6 && cool < 0.1 && menuT === 0 && lpCalm < I.lpCalm * 1.3 && lpHot > 15000 && ambCalm > ambHot && ambHot > 0,
+      `yên ${calm0.toFixed(2)}, căng ${hot.toFixed(2)}, giữ ${hold.toFixed(2)}, nguội ${cool.toFixed(2)}, lọc ${Math.round(lpCalm)} → ${Math.round(lpHot)} Hz, nền ${ambCalm.toFixed(3)} / ${ambHot.toFixed(3)}`);
+  }
+  { // ---- V7-7 (B3): âm theo khoảng cách ----
+    fresh(); const D = CFG.audio.dist, p = P();
+    const g0 = SFX.distGain(p.x + 50, p.y), g1 = SFX.distGain(p.x + (D.near + D.far) / 2, p.y), g2 = SFX.distGain(p.x + D.far + 50, p.y), g3 = SFX.distGain(p.x + 50);
+    await wait(300); const nv = () => (SFX.voices.kill || []).length, v0 = nv(); SFX.play('kill', { x: p.x + D.far + 200, y: p.y }); const culled = nv() === v0;
+    SFX.play('kill', { x: p.x + 30, y: p.y }); const played = nv() === v0 + 1;
+    ok('V7-7', '7.1 Âm ở gần nguyên âm lượng, ở giữa nhỏ dần, quá 420 đơn vị không phát và không chiếm giọng; thiếu y thì như cũ',
+      g0 === 1 && g1 > D.min && g1 < 1 && g2 === 0 && g3 === 1 && culled && played, `gần ${g0}, giữa ${g1.toFixed(2)}, xa ${g2}, bỏ ${culled}, phát ${played}`);
+  }
+  { // ---- V7-8 (B4): âm phản hồi còn thiếu + ẩn tab ----
+    const heard = [], op = SFX.play; SFX.play = function (n, o) { heard.push(n); return op.call(this, n, o); };
+    const cnt = n => heard.filter(x => x === n).length;
+    fresh(); tryDash(); tryDash(); const dashDeny = cnt('deny') === 1;
+    G.pending = 1; openLevelUp(); G.rerolls = 0; reroll(); const rrDeny = cnt('deny') === 2;
+    show('levelup', false); G.state = 'play'; G.pending = 0;
+    META.souls = 0; buyMeta(META_UPGRADES[0].id); const buyDeny = cnt('deny') === 3;
+    togglePause(); const pIn = cnt('pauseIn') === 1; togglePause();
+    SFX.play = op;
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange'));
+    for (let i = 0; i < 30 && SFX.ctx && SFX.ctx.state !== 'suspended'; i++) await wait(50);
+    const susp = SFX.ctx.state === 'suspended';
+    delete document.hidden; document.dispatchEvent(new Event('visibilitychange'));
+    for (let i = 0; i < 30 && SFX.ctx && SFX.ctx.state !== 'running'; i++) await wait(100);
+    if (G.state === 'paused') togglePause();                       // ui.js tự tạm dừng khi tab ẩn
+    const back = SFX.ctx.state === 'running', oneTrack = !!SFX.trackNode;
+    ok('V7-8', '8.1 Lướt lúc chưa hồi, đổi thẻ hết lượt, mua thiếu linh hồn đều có tiếng báo; mở tạm dừng có tiếng; ẩn tab thì âm thanh dừng hẳn, hiện lại chạy tiếp đúng một bản nhạc',
+      dashDeny && rrDeny && buyDeny && pIn && susp && back && oneTrack, `lướt ${dashDeny}, đổi thẻ ${rrDeny}, mua ${buyDeny}, dừng ${pIn}, ẩn ${susp}, hiện ${back}`);
+  }
+  if (!window.__loopSeam) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'tools/loop-seam.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.body.append(s); });
+  { // ---- V7-9 (B5): điểm nối vòng lặp + chọn nhạc theo giai đoạn ----
+    const sr = 8000, d = new Float32Array(sr * 2); for (let i = 0; i < d.length; i++) d[i] = Math.sin(2 * Math.PI * 50 * i / sr);
+    const s = snapLoop(d, sr, 0.5037, 1.5061), at = t => d[Math.round(t * sr)], up = t => d[Math.round(t * sr) + 1] > d[Math.round(t * sr)];
+    const snapped = Math.abs(at(s.start)) < 0.05 && Math.abs(at(s.end)) < 0.05 && up(s.start) && up(s.end) && Math.abs(s.start - 0.5037) <= 0.02 && Math.abs(s.end - 1.5061) <= 0.02;
+    const flat = snapLoop(new Float32Array(sr), sr, 0.2, 0.6), kept = flat.start === 0.2 && flat.end === 0.6;
+    const mu = SFX.music, fake = { buf: 1 }; SFX.music = { normal: fake, boss: fake, late: fake, title: fake, win: fake };
+    fresh(); const a = SFX.wantTrack(); v.skipTo(2); const b = SFX.wantTrack(); v.spawnBoss('bossOgre'); G.cine = null; const c = SFX.wantTrack();
+    G.enemies.clear(); G.boss = null; G.state = 'menu'; const m = SFX.wantTrack(); G.state = 'over'; G.won = true; const w = SFX.wantTrack(); G.won = false; const l = SFX.wantTrack();
+    SFX.music = { normal: fake, boss: fake }; G.state = 'play'; const fb = SFX.wantTrack(); G.state = 'menu'; const fm = SFX.wantTrack(); G.state = 'play';
+    SFX.music = mu;
+    ok('V7-9', '9.1 Điểm nối vòng lặp dời về chỗ tín hiệu qua 0 (≤ 20 ms), tín hiệu phẳng thì giữ nguyên; nhạc: đợt 1–2 thường, đợt 3+ bản sau, boss, menu, thắng; thiếu file thì lùi về bản đang có',
+      snapped && kept && a === 'normal' && b === 'late' && c === 'boss' && m === 'title' && w === 'win' && l === null && fb === 'normal' && fm === null,
+      `nối ${snapped}/${kept}; ${a}, ${b}, ${c}, ${m}, ${w}, ${l}; thiếu file: ${fb}, ${fm}`);
+  }
+  SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.applyVolumes();
+  G.enemies.clear(); G.boss = null; G.zones.length = 0;
   CFG.hints.on = true;
   SETUP.easy = easyBak;
+  if (typeof lightBak === 'boolean') SETTINGS.light = lightBak;
+  if (document.getElementById('optLight')) document.getElementById('optLight').checked = SETTINGS.light;
+  if (typeof fxAlphaBak === 'number') SETTINGS.fxAlpha = fxAlphaBak;
+  if (document.getElementById('optFx')) {
+    const el = document.getElementById('optFx');
+    el.value = Math.round(SETTINGS.fxAlpha * 100);
+    if (document.getElementById('optFxV')) document.getElementById('optFxV').textContent = el.value + '%';
+  }
   for (const k of Object.keys(META)) delete META[k];
   Object.assign(META, JSON.parse(metaAll));
   for (const [k, val] of lsAll) val === null ? localStorage.removeItem(k) : localStorage.setItem(k, val);

@@ -35,6 +35,8 @@ function resize() {
 addEventListener('resize', () => { resize(); vigWave = -1; });
 resize();
 const snapPx = v => Math.round(v * ZOOM) / ZOOM; // làm tròn về đúng 1 px thiết bị
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function calm() { return REDUCED_MOTION || SETTINGS.noFlash; } // tắt co giãn trúng đòn khi bật giảm loé hoặc reduced-motion
 
 
 /* =========================================================
@@ -358,15 +360,19 @@ function draw(c, e, kind) {
     const x = snapPx(e.x), flip = rot === null && e.face < 0, inv = 1 / ZOOM;
     let y = snapPx(e.y);
     const sh = sheetFor(a, outlineRole(e, kind), e.sc || 1), q = sh.cells.get(fr); // hệ số riêng (quái tinh anh) đã nằm sẵn trong tấm sprite
-    // Trúng đòn: bẹp ngang một chút (boss nhẹ hơn để không rung liên tục)
-    const k = e.flash > 0 ? Math.min(1, e.flash / 0.1) * (e.boss ? 0.4 : 1) : 0;
-    let sx = 1 + 0.18 * k, sy = 1 - 0.12 * k;
+    // Trúng đòn: bẹp ngang một chút theo e.pop (không áp cho người chơi hoặc khi calm())
+    let sx = 1, sy = 1;
+    if (kind !== 'player' && e.pop > 0 && !calm()) {
+      const C = CFG.juice, k = Math.min(1, e.pop / C.pop);
+      sx = 1 + C.sx * k; sy = 1 - C.sy * k;
+    }
     const ga = c.globalAlpha; let al = ga;
     if (e.anim !== undefined && ENEMIES[kind] && !e.boss && !e.prop && !e.frozen && !(e.stunT > 0)) {
       // Nhún khi đi: co giãn vài px canvas theo nhịp riêng của từng con (e.anim khởi đầu ngẫu nhiên), chân đứng yên
       const B = CFG.bob, dh = B.amp ? Math.round(Math.sin(e.anim * B.rate) * Math.max(1, Math.round(q.bh * B.amp))) : 0;
-      if (dh) { sy *= (q.bh + dh) / q.bh; sx *= (q.bw - dh) / q.bw; y -= Math.round(q.fy * dh / q.bh) * inv; }
+      if (dh) { sy *= (q.bh + dh) / q.bh; sx *= (q.bw - dh) / q.bw; }
     }
+    if (sy !== 1) y += Math.round(q.fy * (1 - sy)) * inv; // neo chân đứng yên khi co giãn (nảy trúng đòn + nhún)
     if (e.inT > 0) { // vừa xuất hiện trong tầm nhìn: lớn dần + hiện dần
       const u = clamp(1 - e.inT / CFG.spawnIn, 0, 1), g = 0.6 + 0.4 * u * (2 - u);
       sx *= g; sy *= g; al *= u; c.globalAlpha = al;
@@ -568,7 +574,7 @@ function drawMotes(camX, camY, t = G.t, wi = waveIdx()) {
 }
 
 /* Lớp phát sáng: quầng sáng vẽ sẵn (64×64), cộng sáng một lượt dưới mọi vật. Có giới hạn số quầng mỗi khung. */
-const GLOW_COLORS = { pink: '255,77,141', purple: '200,107,255', cyan: '127,212,255', gold: '255,209,102', green: '92,255,157', red: '255,59,92' };
+const GLOW_COLORS = { pink: '255,77,196', purple: '200,107,255', cyan: '127,212,255', gold: '255,209,102', green: '92,255,157', red: '255,59,92' };
 const GLOWS = {};
 function glowImg(name) {
   let c = GLOWS[name];
@@ -586,6 +592,88 @@ function glow(name, x, y, r, ry = r) {
   if (glowCount >= CFG.glowCap) return;
   glowCount++; ctx.drawImage(glowImg(name), x - r, y - ry, r * 2, ry * 2);
 }
+
+/* Lớp ánh sáng đêm (lightmap): vẽ các nguồn sáng kiểu cộng lên canvas phụ ở độ phân giải thế giới (1 px = 1 đơn vị),
+   rồi nhân (multiply) lên cảnh trước đạn quái / cảnh báo / số sát thương. */
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');
+const light = { cv: null, failed: false, slowT: 0, n: 0 };
+const LIGHT_IMGS = {}, lightList = [], eliteTmp = [];
+let lightG = null;
+function lightOn() { return SETTINGS.light && !light.failed; }
+function lightImg(color) {
+  let c = LIGHT_IMGS[color];
+  if (!c) {
+    c = LIGHT_IMGS[color] = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), rgb = hexRgb(color), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  }
+  return c;
+}
+function addLight(x, y, r, color, a = 1) {
+  if (lightList.length >= CFG.light.max * 5) return;
+  lightList.push(x, y, r, color, a);
+}
+function drawLights(camX, camY) {
+  const L = CFG.light, p = G.player;
+  const cw = Math.max(1, Math.ceil(VW)), ch = Math.max(1, Math.ceil(VH));
+  if (!light.cv || light.cv.width !== cw || light.cv.height !== ch) {
+    light.cv = document.createElement('canvas'); light.cv.width = cw; light.cv.height = ch;
+    lightG = light.cv.getContext('2d');
+  }
+  lightList.length = 0; eliteTmp.length = 0;
+  const onCam = (x, y, r) => x + r > camX && x - r < camX + VW && y + r > camY && y - r < camY + VH;
+  // Gom đèn theo thứ tự ưu tiên (người chơi → boss → vùng nổ → tinh anh → đạn; bỏ đèn ngọc để giữ ngân sách khung hình)
+  if (p) addLight(p.x, p.y, L.player, L.playerCol);
+  for (let i = 0, it = G.enemies.items; i < it.length; i++) {
+    const e = it[i]; if (e.dead) continue;
+    if (e.boss) {
+      const br = e.raged ? L.boss * L.rageMul : L.boss;
+      if (onCam(e.x, e.y, br)) addLight(e.x, e.y, br, e.raged ? L.rageCol : ENEMIES[e.type].color);
+    } else if (e.elite) eliteTmp.push(e);
+  }
+  for (let i = 0; i < G.zones.length; i++) {
+    const z = G.zones[i], zr = z.r * L.zone;
+    if (onCam(z.x, z.y, zr)) addLight(z.x, z.y, zr, L.zoneCol, clamp(0.5 + 0.5 * (1 - z.t / (z.max || 1)), 0, 1));
+  }
+  for (let i = 0; i < eliteTmp.length; i++) {
+    const e = eliteTmp[i];
+    if (onCam(e.x, e.y, L.elite)) addLight(e.x, e.y, L.elite, L.eliteCol);
+  }
+  for (let i = 0, it = G.bullets.items; i < it.length; i++) {
+    const b = it[i];
+    if (!b.dead && onCam(b.x, b.y, L.bullet)) addLight(b.x, b.y, L.bullet, (WEAPON_LOOK[b.kind] && WEAPON_LOOK[b.kind].col) || '#ffffff');
+  }
+  const g = lightG;
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  g.fillStyle = WAVE_DEFS[waveIdx()].ambient; g.fillRect(0, 0, cw, ch);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < lightList.length; i += 5) {
+    const x = lightList[i], y = lightList[i + 1], r = lightList[i + 2];
+    g.globalAlpha = lightList[i + 4];
+    g.drawImage(lightImg(lightList[i + 3]), x - camX - r, y - camY - r, r * 2, r * 2);
+  }
+  g.globalAlpha = 1;
+  ctx.setTransform(SCREEN, 0, 0, SCREEN, 0, 0);
+  ctx.globalCompositeOperation = 'multiply';
+  if (ctx.globalCompositeOperation !== 'multiply') {
+    ctx.globalCompositeOperation = 'source-over';
+    light.failed = true; light.n = 0; lightList.length = 0; return;
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(light.cv, 0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.imageSmoothingEnabled = false;
+  light.n = lightList.length / 5;
+  lightList.length = 0;
+}
+function lightTick(dt, renderMs) {
+  if (!lightOn()) return;
+  const A = CFG.light.autoOff;
+  if (renderMs > A.ms) { light.slowT += dt; if (light.slowT >= A.hold) light.failed = true; }
+  else light.slowT = 0;
+}
+
 function drawGlows(vis) {
   glowCount = 0;
   ctx.globalCompositeOperation = 'lighter';
@@ -616,7 +704,6 @@ function drawGlows(vis) {
    Theo bậc (WEAPON_LOOK.aura): bậc 1 vòng mờ; bậc 2 thêm vòng đứt nét bên trong xoay ngược; bậc 3 thêm sóng toả theo nhịp
    gây sát thương. Giữa vùng luôn gần trong suốt để nền, vật phẩm và vùng báo trước bên dưới vẫn đọc được. */
 const auraCache = { key: '', cv: null, size: 0 };
-const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(',');
 function drawAura(p) {
   const w = p.weapons.aura; if (!w) return;
   const L = weaponLook(w), R = Math.round(w.radius * p.mArea), ringA = Math.min(0.85, L.ring + lookStep(w) * L.grow);
@@ -633,6 +720,8 @@ function drawAura(p) {
     Object.assign(auraCache, { key, cv: c, size: (m * 2) / ZOOM });
   }
   // Ảnh vòng tròn đối xứng nên không cần xoay (xoay ảnh lớn rất tốn); chỉ phập phồng nhẹ
+  const fa = SETTINGS.fxAlpha;
+  ctx.globalAlpha = fa;
   const size = auraCache.size * (1 + Math.sin(w.pulse * 4) * 0.03);
   ctx.drawImage(auraCache.cv, p.x - size / 2, p.y - size / 2, size, size);
   if (L.ring2) { // vòng đứt nét bên trong, xoay ngược chiều: vẽ nét (rẻ hơn một ảnh lớn nữa)
@@ -641,9 +730,10 @@ function drawAura(p) {
   }
   if (L.pulse) { // sóng mảnh toả từ tâm ra mép theo nhịp gây sát thương
     const ph = (w.pulse % w.tick) / w.tick;
-    ctx.globalAlpha = L.pulse * (1 - ph); ctx.strokeStyle = `rgb(${rgb2})`; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(p.x, p.y, R * (0.25 + 0.75 * ph), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.globalAlpha = L.pulse * (1 - ph) * fa; ctx.strokeStyle = `rgb(${rgb2})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, R * (0.25 + 0.75 * ph), 0, TAU); ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
 
 /* Nội suy: logic chạy 60 bước/giây cố định, còn màn hình có thể 75/120/144Hz.
@@ -669,15 +759,16 @@ function lerpOut() {
    bậc 3 thêm vòng liền mờ trên quỹ đạo và lưỡi sáng hơn (quầng cộng sáng). */
 function drawOrbit(p) {
   const w = p.weapons.orbit; if (!w) return;
+  const fa = SETTINGS.fxAlpha;
   const r = w.r * Math.sqrt(p.mArea), L = weaponLook(w), arc = L.arc ? L.arc + lookStep(w) * L.grow : 0;
   const spr = Assets.get('orb'), rings = orbitRings(w, p);
   ctx.lineCap = 'round';
   rings.forEach(([n, ang, R], ri) => {
-    if (L.ring) { ctx.globalAlpha = L.ring; ctx.strokeStyle = L.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, TAU); ctx.stroke(); }
+    if (L.ring) { ctx.globalAlpha = L.ring * fa; ctx.strokeStyle = L.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, TAU); ctx.stroke(); }
     if (arc) { // cung kéo sau mỗi lưỡi: phía ngược chiều xoay (vòng ngoài của Nguyệt Thực xoay ngược)
       const dir = ri ? Math.sign(CFG.evo.orbit2.spin) : 1;
       ctx.strokeStyle = L.col;
-      ctx.globalAlpha = 0.24; ctx.lineWidth = r * 0.9; ctx.beginPath();
+      ctx.globalAlpha = 0.24 * fa; ctx.lineWidth = r * 0.9; ctx.beginPath();
       for (let i = 0; i < n; i++) { // mọi cung của một vòng gom vào MỘT path
         const a = ang + i * TAU / n, a0 = dir > 0 ? a - arc : a, a1 = dir > 0 ? a : a + arc;
         ctx.moveTo(p.x + Math.cos(a0) * R, p.y + Math.sin(a0) * R); ctx.arc(p.x, p.y, R, a0, a1);
@@ -688,17 +779,19 @@ function drawOrbit(p) {
   });
   for (const [n, ang, R] of rings) for (let i = 0; i < n; i++) {
     const a = ang + i * TAU / n, x = p.x + Math.cos(a) * R, y = p.y + Math.sin(a) * R;
+    ctx.globalAlpha = fa;
     if (spr) { // kiếm ngọc đỏ, mũi kiếm hướng ra ngoài
-      ctx.fillStyle = L.glow ? '#ff3b5c40' : '#ff204026'; circle(ctx, x, y, r + (L.glow ? 6 : 4));
+      ctx.fillStyle = L.glow ? '#c44dff40' : '#b020ff26'; circle(ctx, x, y, r + (L.glow ? 6 : 4));
       const sh = sheetFor(spr, 'item', 1), q = sh.cells.get(spr.meta.anims.idle.frames[0]);
       drawFrame(ctx, sh.cv, q, x, y, a + spr.meta.rotate, false);
-      if (L.glow) { ctx.globalAlpha = 0.35; drawFrame(ctx, sh.white, q, x, y, a + spr.meta.rotate, false); ctx.globalAlpha = 1; } // bậc 3: lưỡi sáng hơn
+      if (L.glow) { ctx.globalAlpha = 0.35 * fa; drawFrame(ctx, sh.white, q, x, y, a + spr.meta.rotate, false); } // bậc 3: lưỡi sáng hơn
       continue;
     }
-    ctx.fillStyle = '#ff204030'; circle(ctx, x, y, r + 5);
+    ctx.fillStyle = '#b020ff30'; circle(ctx, x, y, r + 5);
     ctx.fillStyle = L.col; circle(ctx, x, y, r);
     ctx.fillStyle = L.col2; circle(ctx, x - r * 0.3, y - r * 0.3, r * 0.4);
   }
+  ctx.globalAlpha = 1;
 }
 
 /* Dao Bạc theo bậc (WEAPON_LOOK.knife): bậc 2 vệt chuyển động phía sau (dài thêm mỗi cấp); bậc 3 thêm bóng mờ và lấp lánh ở mũi. */
@@ -713,22 +806,24 @@ function streakImg(color) { // vệt thon vẽ sẵn: trong suốt ở đuôi (t
 }
 const ghostProxy = { x: 0, y: 0, vx: 0, vy: 0, face: 1, flash: 0 };
 function drawKnifeLook(b, after) {
+  const fa = SETTINGS.fxAlpha;
   const L = WEAPON_LOOK.knife.tiers[(b.tier || 1) - 1], sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp;
   if (after) { // sau khi vẽ dao: lấp lánh hình chữ thập ở mũi
     if (!L.glint) return;
     const k = 0.6 + 0.4 * Math.sin(b.life * 30), tx = b.x + ux * 7, ty = b.y + uy * 7, s = 2.5 * k;
-    ctx.globalAlpha = 0.9; ctx.fillStyle = L.col; ctx.fillRect(tx - s, ty - 0.5, s * 2, 1); ctx.fillRect(tx - 0.5, ty - s, 1, s * 2); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.9 * fa; ctx.fillStyle = L.col; ctx.fillRect(tx - s, ty - 0.5, s * 2, 1); ctx.fillRect(tx - 0.5, ty - s, 1, s * 2); ctx.globalAlpha = 1;
     return;
   }
   const len = L.trail + (b.lv || 0) * L.grow;
   if (len > 0) {
+    ctx.globalAlpha = fa;
     ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
     ctx.drawImage(streakImg(L.col2), -len - 4, -1.5, len, 3); ctx.restore();
   }
   const ng = G.bullets.items.length > 40 ? 0 : L.ghost;   // nhiều đạn quá thì bỏ bóng mờ trước (trang trí rẻ nhất để bỏ)
   for (let k = ng; k >= 1; k--) { // bóng mờ: chính con dao, lùi lại phía sau
     Object.assign(ghostProxy, { x: b.x - ux * k * 10, y: b.y - uy * k * 10, vx: b.vx, vy: b.vy });
-    ctx.globalAlpha = 0.32 / k; draw(ctx, ghostProxy, 'knife');
+    ctx.globalAlpha = (0.32 / k) * fa; draw(ctx, ghostProxy, 'knife');
   }
   ctx.globalAlpha = 1;
 }
@@ -777,11 +872,13 @@ function fxReady() { return FX_SRC ? Assets.imgs[FX_SRC] : null; }
 // Vẽ 2 lượt: hiệu ứng thường trước, hiệu ứng cộng sáng sau — đổi chế độ hoà màu chỉ 1 lần mỗi lượt.
 function drawSfx(under, vis) {
   const img = fxReady(); if (!img) return;
+  const fa = SETTINGS.fxAlpha;
   for (const additive of [false, true]) {
     ctx.globalCompositeOperation = additive ? 'lighter' : 'source-over';
     for (const s of G.sfx.items) {
       const st = FX_STYLE[s.key];
       if (!!st.under !== under || !!st.add !== additive || !vis(s)) continue;
+      ctx.globalAlpha = st.pri ? 1 : fa;
       const meta = FX_ATLAS.fx[s.key], sc = st.scale * (s.k || 1);
       const f = meta.frames[Math.min(meta.frames.length - 1, Math.floor(s.t * 1000 / meta.ms))];
       const ox = -meta.pivot[0] * sc, oy = -meta.pivot[1] * sc;
@@ -795,6 +892,7 @@ function drawSfx(under, vis) {
     }
   }
   ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
 }
 
 /* ---------- Báo trước đòn tấn công ---------- */
@@ -883,7 +981,7 @@ function drawZones() {
 }
 // Hiệu ứng tạm thời quanh người chơi: khiên phép (vòng xanh + số đòn còn chặn), cuồng nộ (quầng đỏ)
 function drawPlayerBuffs(p) {
-  if (SETTINGS.clear) { ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y + 2, p.r + 6, 0, TAU); ctx.stroke(); }   // Dễ nhìn: vòng sáng quanh nhân vật (Q-013)
+  ctx.strokeStyle = `rgba(255,255,255,${SETTINGS.clear ? CFG.playerRing.clear : CFG.playerRing.a})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y + 2, p.r + 6, 0, TAU); ctx.stroke();   // Vòng sáng quanh nhân vật luôn bật (Q-013)
   if (p.buffs.rage > 0) { ctx.fillStyle = `rgba(255,90,50,${0.16 + 0.08 * Math.sin(G.t * 12)})`; circle(ctx, p.x, p.y + 2, p.r + 7); }
   if (p.buffs.shield > 0 && p.shieldHits > 0) {
     const fading = p.buffs.shield < 3 && Math.floor(G.t * 8) % 2;
@@ -957,6 +1055,7 @@ function drawTexts(vis) {
 
 const dieProxy = { x: 0, y: 0, face: 1, anim: 0, r: 10, flash: 0 };
 function drawFx() {
+  const fa = SETTINGS.fxAlpha;
   for (const f of G.fx.items) {
     const a = clamp(f.life / f.max, 0, 1);
     if (f.type === 'zap') {
@@ -970,7 +1069,7 @@ function drawFx() {
       ctx.globalAlpha = 1;
     } else if (f.type === 'bolt') { // Lôi Phạt bậc 2+: tia sét dày, có nhánh phụ (vẽ thêm trên hiệu ứng sprite)
       const top = f.y - 260, n = f.pts.length - 1, X = i => f.x + (i === n ? 0 : f.pts[i]), Y = i => top + (f.y - top) * i / n;
-      ctx.globalAlpha = a; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.globalAlpha = a * fa; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       for (const [col, wd] of [[f.color, 1.2 + 1.3 * f.w], ['#ffffff', 0.6 + 0.4 * f.w]]) {
         ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.beginPath(); ctx.moveTo(X(0), Y(0));
         for (let i = 1; i <= n; i++) ctx.lineTo(X(i), Y(i));
@@ -983,17 +1082,17 @@ function drawFx() {
       if (f.glow) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowImg(f.glow), f.x - f.r * 1.3, f.y - f.r * 0.8, f.r * 2.6, f.r * 1.6); ctx.globalCompositeOperation = 'source-over'; } // quầng sáng chỗ sét đánh
       ctx.globalAlpha = 1;
     } else if (f.type === 'cast') { // loé nhỏ ở chỗ bắn
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a;
-      ctx.globalAlpha = 0.75 * a; ctx.fillStyle = f.color; circle(ctx, f.x, f.y, f.r * (1.4 - 0.4 * a));
-      ctx.globalAlpha = a; ctx.fillStyle = '#ffffff'; circle(ctx, f.x, f.y, f.r * 0.4 * a);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.75 * a * fa; ctx.fillStyle = f.color; circle(ctx, f.x, f.y, f.r * (1.4 - 0.4 * a));
+      ctx.globalAlpha = a * fa; ctx.fillStyle = '#ffffff'; circle(ctx, f.x, f.y, f.r * 0.4 * a);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     } else if (f.type === 'nova') {
       if (f.delay > 0 || !f.started) continue;
       const fade = f.r < f.maxR ? 1 : a, L = WEAPON_LOOK.nova.tiers[(f.tier || 1) - 1], k = L.size + (f.lv || 0) * L.grow;
-      ctx.globalAlpha = fade;
+      ctx.globalAlpha = fade * fa;
       ctx.strokeStyle = L.col; ctx.lineWidth = (8 * fade + 1) * k; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke();
       ctx.strokeStyle = L.col2; ctx.lineWidth = 2; ctx.stroke();
-      if (L.double && f.r > 12) { ctx.globalAlpha = fade * 0.55; ctx.strokeStyle = L.col; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.72, 0, TAU); ctx.stroke(); } // vòng thứ hai bám sau
+      if (L.double && f.r > 12) { ctx.globalAlpha = fade * 0.55 * fa; ctx.strokeStyle = L.col; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.72, 0, TAU); ctx.stroke(); } // vòng thứ hai bám sau
       ctx.globalAlpha = 1;
     } else if (f.type === 'die') {
       // Quái chết: nháy trắng, co lại và mờ dần trong ~0.22 giây thay vì biến mất tức thì
@@ -1034,7 +1133,6 @@ function drawBacklight(e) {
 }
 
 // Boss xuất hiện: camera lia 70% quãng tới boss (0.5 giây), giữ 0.5 giây, lia về 0.4 giây
-const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cineOff = { x: 0, y: 0 };
 function cineOffset(p) {
   cineOff.x = cineOff.y = 0;
@@ -1154,6 +1252,7 @@ function renderScene() {
   ctx.globalAlpha = 1;
   drawFx();
   drawSfx(false, vis);
+  if (lightOn()) { drawLights(camX, camY); ctx.setTransform(ZOOM, 0, 0, ZOOM, -camX * ZOOM, -camY * ZOOM); }
   for (const s of G.shots.items) if (vis(s)) draw(ctx, s, 'shot'); // đạn quái luôn nằm trên mọi hiệu ứng
   drawWarnings(p);
   drawTexts(vis);

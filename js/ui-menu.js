@@ -66,8 +66,9 @@ function renderMeta() {
   const r = $('metaReset'); r.dataset.arm = ''; r.textContent = 'Đặt lại (hoàn linh hồn)';
 }
 function buyMeta(id) {
+  if (!META_UPGRADES.some(m => m.id === id)) { SFX.play('deny'); return false; }
   const lv = metaLv(id), cost = CFG.metaCost[lv];
-  if (cost === undefined || META.souls < cost) return false;
+  if (cost === undefined || META.souls < cost) { SFX.play('deny'); return false; }
   META.souls -= cost; META.up[id] = lv + 1; saveMeta(); SFX.play('select'); renderMeta(); renderMenu();
   return true;
 }

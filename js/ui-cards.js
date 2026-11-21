@@ -119,7 +119,8 @@ function renderCards() {
   box.classList.add('locked'); setTimeout(() => box.classList.remove('locked'), 350);
 }
 function reroll(force) {
-  if (G.state !== 'levelup' || G.rerolls <= 0) return false;
+  if (G.state !== 'levelup') return false;
+  if (G.rerolls <= 0) { SFX.play('deny'); return false; }
   if (!force && performance.now() < cardLockUntil) return false;
   G.rerolls--; G.choices = rollChoices(G.choices.map(u => u.id)); renderCards(); SFX.play('select');
   return true;

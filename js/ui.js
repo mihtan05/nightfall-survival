@@ -37,7 +37,7 @@ function renderPause() {
   $('pStats').replaceChildren(...rows.flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
 }
 function togglePause() {
-  if (G.state === 'play') { G.state = 'paused'; endJoy(); renderPause(); show('paused', true); }
+  if (G.state === 'play') { G.state = 'paused'; endJoy(); renderPause(); show('paused', true); SFX.play('pauseIn'); }
   else if (G.state === 'paused') { G.state = 'play'; show('paused', false); SFX.play('back'); }
 }
 // Âm rê chuột lên nút / thẻ (V5 Phase 6): chỉ khi con trỏ đi vào nút mới, không lặp khi rê trong cùng một nút
@@ -79,17 +79,21 @@ function continueEndless() {
 $('endlessBtn').addEventListener('click', continueEndless);
 $('resumeBtn').addEventListener('click', togglePause);
 $('rerollBtn').addEventListener('click', () => reroll());
-// Âm lượng nhạc / hiệu ứng (lưu lại cho lần chơi sau)
-for (const [id, key, storeKey] of [['optMusic', 'musicVol', 'vs_music'], ['optSfx', 'sfxVol', 'vs_sfx']]) {
+// Âm lượng nhạc / hiệu ứng & độ đậm hiệu ứng vũ khí (lưu lại cho lần chơi sau)
+for (const [id, key, storeKey, cb] of [
+  ['optMusic', 'musicVol', 'vs_music', () => SFX.applyVolumes()],
+  ['optSfx', 'sfxVol', 'vs_sfx', () => SFX.applyVolumes()],
+  ['optFx', 'fxAlpha', 'vs_fxalpha', null],
+]) {
   const el = $(id), out = $(id + 'V');
   el.value = Math.round(SETTINGS[key] * 100); out.textContent = el.value + '%';
   el.addEventListener('input', () => {
     SETTINGS[key] = el.value / 100; out.textContent = el.value + '%';
-    store.set(storeKey, SETTINGS[key]); SFX.applyVolumes();
+    store.set(storeKey, SETTINGS[key]); if (cb) cb();
   });
 }
 // Công tắc rung màn hình (lưu lại cho lần chơi sau)
-for (const [id, key, sk] of [['optDmgNum', 'dmgNum', 'vs_dmgnum'], ['optNoFlash', 'noFlash', 'vs_noflash'], ['optClear', 'clear', 'vs_clear'], ['optBig', 'big', 'vs_big']]) {
+for (const [id, key, sk] of [['optDmgNum', 'dmgNum', 'vs_dmgnum'], ['optNoFlash', 'noFlash', 'vs_noflash'], ['optClear', 'clear', 'vs_clear'], ['optBig', 'big', 'vs_big'], ['optLight', 'light', 'vs_light']]) {
   $(id).checked = SETTINGS[key];
   $(id).addEventListener('change', e => { SETTINGS[key] = e.target.checked; store.set(sk, SETTINGS[key]); uiScale(); });
 }
@@ -112,9 +116,9 @@ addEventListener('orientationchange', () => { if (G.state === 'play') togglePaus
 /* =========================================================
    VÒNG LẶP CHÍNH
    ========================================================= */
-let last = performance.now(), acc = 0, fpsT = 0, fpsN = 0, gapMax = 0, workMax = 0, cineOn = false;
+let last = performance.now(), acc = 0, fpsT = 0, fpsN = 0, gapMax = 0, workMax = 0, cineOn = false, lightOffToast = false;
+function tickLoop(now) { requestAnimationFrame(tickLoop); frame(now); }
 function frame(now) {
-  requestAnimationFrame(frame);
   const w0 = performance.now();
   const gap = now - last; last = now;
   if (gap > gapMax) gapMax = gap;
@@ -158,7 +162,16 @@ function frame(now) {
   // Nội suy giữa 2 bước logic: màn 75/120/144Hz không còn khung "đứng hình" xen khung "nhảy cóc"
   try {
     if (G.state === 'menu') renderAttract(dt);   // menu: cảnh nền sống động (không có người chơi, không gọi update)
-    else render(G.state === 'play' ? acc / CFG.step : 1);
+    else {
+      const r0 = performance.now();
+      render(G.state === 'play' ? acc / CFG.step : 1);
+      const wasFailed = light.failed;
+      lightTick(dt, performance.now() - r0);
+      if (!wasFailed && light.failed && !lightOffToast) {
+        lightOffToast = true;
+        showToast({ id: 'lightOff', text: 'Đã tắt ánh sáng đêm để game mượt hơn' });
+      }
+    }
   } catch (e) { console.error(e); reportError(e && e.message || e); }
   try { updateHud(); } catch (e) { console.error(e); reportError(e && e.message || e); }
   const work = performance.now() - w0; if (work > workMax) workMax = work;
@@ -200,4 +213,4 @@ if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) addEvent
     .then(c => c && Promise.all([location.pathname, ...performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin))].map(u => c.add(u).catch(() => {}))))
     .catch(e => console.warn('Không bật được chế độ ngoại tuyến', e));
 });
-Assets.load().then(() => { buildIcons(); updateMuteBtn(); renderOwned(); renderMenu(); requestAnimationFrame(t => { last = t; frame(t); }); });
+Assets.load().then(() => { buildIcons(); updateMuteBtn(); renderOwned(); renderMenu(); requestAnimationFrame(t => { last = t; tickLoop(t); }); });

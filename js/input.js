@@ -86,7 +86,7 @@ function padFocus(step) {
   const tops = document.querySelectorAll('.overlay.show'), top = tops[tops.length - 1]; if (!top) return null;
   const els = [...top.querySelectorAll('button:not([disabled]), input')].filter(e => e.getClientRects().length), i = els.indexOf(document.activeElement);
   const el = i < 0 ? top.querySelector('.card, #startBtn, #resumeBtn') || els[0] : els[(i + step + els.length) % els.length];
-  if (el) el.focus();
+  if (el) { const changed = el !== document.activeElement; el.focus(); if (changed) SFX.play('hover'); }
   return i < 0 ? null : el;
 }
 function pollPad() {

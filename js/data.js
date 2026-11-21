@@ -43,6 +43,11 @@ const CFG = {
   barLag: 8,              // thanh máu: vệt nhạt đuổi theo máu thật, số càng lớn càng nhanh (~0.4 giây)
   shakeMax: 8,            // rung màn tối đa (đơn vị thế giới)
   hitStop: { big: 0.045, boss: 0.06 }, // khựng hình khi hạ quỷ khổng lồ / boss (giây)
+  // Lớp ánh sáng đêm (lightmap): bán kính đèn, màu, giới hạn số đèn mỗi khung và ngưỡng tự tắt khi máy chậm
+  light: { player: 150, playerCol: '#fff2d0', gem: 14, gemCol: '#7fe6ff', bullet: 24, zone: 1.25, zoneCol: '#ff5040', boss: 120, elite: 55, eliteCol: '#ffd166', rageCol: '#ff5a6e', rageMul: 1.3, max: 80, autoOff: { ms: 20, hold: 3 } },
+  playerRing: { a: 0.35, clear: 0.8 }, // vòng sáng quanh nhân vật luôn bật (đậm hơn khi bật Dễ nhìn)
+  juice: { pop: 0.09, sx: 0.18, sy: 0.12 }, // phản hồi trúng đòn: thời gian nảy (giây), giãn ngang và co dọc ở đỉnh
+  dmgNum: { busy: 40, max: 60, keep: 0.6, ema: 0.05 }, // bớt số sát thương khi đông: từ busy số trở lên bỏ đòn < keep × trung bình trượt (ema), tối đa max số cùng lúc
 };
 
 // Cài đặt người chơi (lưu localStorage)
@@ -52,8 +57,10 @@ const SETTINGS = {
   noFlash: store.get('vs_noflash', false), // giảm loé màn
   clear: store.get('vs_clear', false),   // dễ nhìn: vùng nguy hiểm viền trắng đậm, vòng sáng quanh nhân vật
   big: store.get('vs_big', false),       // chữ HUD lớn
+  light: store.get('vs_light', true),    // lớp ánh sáng đêm (lightmap)
   musicVol: store.get('vs_music', 0.6),  // 0..1
   sfxVol: store.get('vs_sfx', 0.8),      // 0..1
+  fxAlpha: store.get('vs_fxalpha', 1),   // độ đậm hiệu ứng vũ khí (0.4..1)
 };
 
 /* pri: hiệu ứng quan trọng, chỉ bị bỏ khi đầy hẳn CFG.sfxCap.
@@ -212,19 +219,19 @@ const ITEMS = {
    (quái thường vẫn ra nhưng thưa hơn). Hạ boss → nghỉ CFG.restTime giây → đợt sau. Hạ boss đợt cuối là thắng.
    mix: thành phần quái theo giây trong đợt; events: sự kiện theo giây trong đợt. */
 const WAVE_DEFS = [
-  { name: 'Nghĩa địa thức giấc', dur: 110, rate: [1.1, 3.0], boss: 'bossZombie',
+  { name: 'Nghĩa địa thức giấc', dur: 110, rate: [1.1, 3.0], boss: 'bossZombie', ambient: '#8088b8',
     ground: { tint: 'rgba(10,8,18,0.50)', decor: ['tomb', 'grass', 'grass'], light: '5,3,12', mote: '#bcd6ff' },
     mix: [{ t: 0, mix: { bat: 1 } }, { t: 20, mix: { bat: 3, slime: 1 } }, { t: 55, mix: { bat: 2, slime: 2, splitter: 0.5 } }, { t: 85, mix: { bat: 2, slime: 2, skeleton: 1, splitter: 0.5 } }], elites: [75],
     events: [{ t: 30, kind: 'circle', type: 'bat', n: 26, msg: 'Bị bao vây!' }, { t: 65, kind: 'swarm', type: 'bat', n: 25, msg: 'Bầy tiểu quỷ kéo đến!' }] },
-  { name: 'Tiếng gọi tử linh', dur: 140, rate: [2.0, 3.6], boss: 'bossNecro',
+  { name: 'Tiếng gọi tử linh', dur: 140, rate: [2.0, 3.6], boss: 'bossNecro', ambient: '#6f78a8',
     ground: { tint: 'rgba(38,10,48,0.50)', decor: ['bones', 'rune', 'bones'], light: '12,3,22', mote: '#c9a6ff' },
     mix: [{ t: 0, mix: { bat: 3, slime: 2, skeleton: 1 } }, { t: 30, mix: { bat: 2, slime: 2, skeleton: 2, ghost: 1, bomber: 1 } }, { t: 110, mix: { bat: 2, slime: 2, skeleton: 2, ghost: 1, golem: 1, bomber: 1, charger: 1 } }], elites: [60, 110],
     events: [{ t: 50, kind: 'circle', type: 'slime', n: 36, msg: 'Bị bao vây!' }, { t: 110, kind: 'swarm', type: 'bat', n: 45, msg: 'Bầy tiểu quỷ kéo đến!' }] },
-  { name: 'Đất rung chuyển', dur: 140, rate: [4.2, 7.0], boss: 'bossOgre',
+  { name: 'Đất rung chuyển', dur: 140, rate: [4.2, 7.0], boss: 'bossOgre', ambient: '#6a5f96',
     ground: { tint: 'rgba(48,26,8,0.50)', decor: ['crack', 'rock', 'crack'], light: '13,7,3', mote: '#b89a72' },
     mix: [{ t: 0, mix: { bat: 2, skeleton: 3, ghost: 2, golem: 1, bomber: 2, charger: 2, splitter: 1 } }, { t: 70, mix: { bat: 3, slime: 2, skeleton: 3, ghost: 2, golem: 1, bomber: 2, charger: 2, splitter: 1 } }], elites: [60, 110],
     events: [{ t: 45, kind: 'circle', type: 'skeleton', n: 40, msg: 'Bị bao vây!' }, { t: 100, kind: 'swarm', type: 'skeleton', n: 50, msg: 'Đội quân xương trỗi dậy!' }] },
-  { name: 'Màn đêm cuối cùng', dur: 140, rate: [7.0, 11.5], boss: 'boss',
+  { name: 'Màn đêm cuối cùng', dur: 140, rate: [7.0, 11.5], boss: 'boss', ambient: '#7a5560',
     ground: { tint: 'rgba(60,6,14,0.55)', decor: ['blood', 'ember', 'ember'], light: '18,2,5', mote: '#ff9a4a' },
     mix: [{ t: 0, mix: { bat: 3, skeleton: 4, ghost: 2, golem: 2, bomber: 2, charger: 3, splitter: 1 } }, { t: 70, mix: { bat: 4, skeleton: 4, ghost: 3, golem: 2, bomber: 2, charger: 3, splitter: 1 } }], elites: [60, 110],
     events: [{ t: 40, kind: 'circle', type: 'golem', n: 24, msg: 'Quỷ khổng lồ bao vây!' }, { t: 95, kind: 'swarm', type: 'bat', n: 80, msg: 'Màn đêm cuối cùng!' }] },
@@ -287,7 +294,7 @@ const WEAPONS = {
           if (e.dead || e.orbCd > 0) continue;
           const rr = e.r + r;
           if ((e.x - ox) ** 2 + (e.y - oy) ** 2 < rr * rr) {
-            e.orbCd = w.hitCd; hitEnemy(e, w.dmg * dmgMul(p), e.x - p.x, e.y - p.y, 0.7, 'claw', 'orbit', weaponLook(w).impact); SFX.play('orb', { x: e.x, tier: weaponTier(w) });
+            e.orbCd = w.hitCd; hitEnemy(e, w.dmg * dmgMul(p), e.x - p.x, e.y - p.y, 0.7, 'claw', 'orbit', weaponLook(w).impact); SFX.play('orb', { x: e.x, y: e.y, tier: weaponTier(w) });
           }
         }
       }
@@ -395,17 +402,17 @@ CFG.upgradeCue = { ring: 70, ringLife: 0.45 }; // lúc chọn thẻ vũ khí: v�
      pulse (sóng theo nhịp gây sát thương), double (vòng sóng thứ 2), dust (hạt bụi tung lên), cracks (cỡ vết nứt, ×bán kính),
      glint (lấp lánh ở mũi dao), ghost (số bóng mờ dao). */
 const WEAPON_LOOK = {
-  bolt: { col: '#ff4d8d', tiers: [
-    { col: '#ff4d8d', col2: '#ffffff', trail: 9,  grow: 1.5, size: 1,    impact: 1,    parts: 0, glow: null,   sparks: 0, after: 0 },
-    { col: '#ff4d8d', col2: '#ffe0ec', trail: 14, grow: 2,   size: 1.2,  impact: 1.25, parts: 0, glow: 'pink', sparks: 2, after: 0 },
-    { col: '#ff7ab0', col2: '#ffffff', trail: 20, grow: 0,   size: 1.45, impact: 1.5,  parts: 0, glow: 'pink', sparks: 3, after: 1 },
-    { col: '#b0103a', col2: '#ffd6de', trail: 20, grow: 0,   size: 1.45, impact: 1.5,  parts: 0, glow: 'red',  sparks: 3, after: 1 },
+  bolt: { col: '#ff4dc4', tiers: [
+    { col: '#ff4dc4', col2: '#ffffff', trail: 9,  grow: 1.5, size: 1,    impact: 1,    parts: 0, glow: null,   sparks: 0, after: 0 },
+    { col: '#ff4dc4', col2: '#ffe0ec', trail: 14, grow: 2,   size: 1.2,  impact: 1.25, parts: 0, glow: 'pink', sparks: 2, after: 0 },
+    { col: '#ff7ad6', col2: '#ffffff', trail: 20, grow: 0,   size: 1.45, impact: 1.5,  parts: 0, glow: 'pink', sparks: 3, after: 1 },
+    { col: '#c0109a', col2: '#ffd6de', trail: 20, grow: 0,   size: 1.45, impact: 1.5,  parts: 0, glow: 'pink', sparks: 3, after: 1 },
   ] },
-  orbit: { col: '#ff3b5c', tiers: [
-    { col: '#ff2040', col2: '#ff9aa8', trail: 0,   grow: 0,    size: 1,    impact: 1,    parts: 0, glow: null,  arc: 0,   ring: 0 },
-    { col: '#ff2040', col2: '#ff9aa8', trail: 0.5, grow: 0.08, size: 1.05, impact: 1.2,  parts: 0, glow: null,  arc: 0.5, ring: 0 },
-    { col: '#ff3b5c', col2: '#ffc2cc', trail: 0.8, grow: 0,    size: 1.1,  impact: 1.4,  parts: 0, glow: 'red', arc: 0.8, ring: 0.16 },
-    { col: '#d0103a', col2: '#ffd166', trail: 0.8, grow: 0,    size: 1.1,  impact: 1.4,  parts: 0, glow: 'red', arc: 0.8, ring: 0.22 },
+  orbit: { col: '#c44dff', tiers: [
+    { col: '#b020ff', col2: '#ff9aa8', trail: 0,   grow: 0,    size: 1,    impact: 1,    parts: 0, glow: null,     arc: 0,   ring: 0 },
+    { col: '#b020ff', col2: '#ff9aa8', trail: 0.5, grow: 0.08, size: 1.05, impact: 1.2,  parts: 0, glow: null,     arc: 0.5, ring: 0 },
+    { col: '#c44dff', col2: '#ffc2cc', trail: 0.8, grow: 0,    size: 1.1,  impact: 1.4,  parts: 0, glow: 'purple', arc: 0.8, ring: 0.16 },
+    { col: '#8a10d0', col2: '#ffd166', trail: 0.8, grow: 0,    size: 1.1,  impact: 1.4,  parts: 0, glow: 'purple', arc: 0.8, ring: 0.22 },
   ] },
   lightning: { col: '#7fd4ff', tiers: [
     { col: '#7fc8ff', col2: '#ffffff', trail: 0, grow: 0,   size: 1,    impact: 1,    parts: 10, glow: null,   branch: 0, scorch: 0,   flash: 0 },
@@ -452,7 +459,11 @@ CFG.lowHp = { on: 0.25, off: 0.4 }; // viền đỏ + thanh máu run khi máu < 
    bình thường; pauseVol: hệ số âm lượng nhạc khi tạm dừng. heart: nhịp tim khi máu < on, chu kỳ từ slow (ở mức on) tới fast (sắp chết).
    tier: theo bậc vũ khí (Phase 3; chỉ số 1..4) — hệ số cao độ (thấp = nặng hơn) và số lớp thêm (1 = thân trầm, 2 = thêm lấp lánh). */
 CFG.audio = {
-  sfxTrim: 0.6,   // hệ số chung cho mọi hiệu ứng (nhân với thanh âm lượng): người dùng thấy hiệu ứng quá to so với nhạc
+  sfxTrim: 0.6,   // hệ số chung cho mọi hiệu ứng (nhân với thanh âm lượng): đã kiểm chứng với 3 lần đo mixProbe(8)
+  mix: { lo: -9, hi: 0 }, // mức chênh (hiệu ứng - nhạc) cho phép theo dB trên trung vị RMS
+  intensity: { full: 120, boss: 0.4, low: 0.2, up: 1.5, down: 4, lpCalm: 4500, gainCalm: 0.8 }, // độ căng trận đấu điều khiển lọc & âm lượng nhạc
+  amb: { vol: 0.12, f: [420, 520, 380, 300], q: 0.6, lfo: 0.1, fall: 0.7 }, // tiếng nền đêm tổng hợp: tần số lọc theo đợt 1–4, giảm dần khi căng
+  dist: { near: 140, far: 420, min: 0.15 }, // giảm âm theo khoảng cách: trong near nguyên âm, tới far còn min, quá far bỏ phát
   limiter: { threshold: -8, knee: 0, ratio: 20, attack: 0.001, release: 0.15 }, post: 0.85,
   roleDb: { frequent: -22, ui: -21, reward: -16, danger: -12 }, gainMin: 0.05, gainMax: 3,
   jitterDb: 2, pitch: 0.05, pan: 0.6, stealAge: 0.04,

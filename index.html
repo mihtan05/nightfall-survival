@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <script>
   // PHIÊN BẢN: đổi MỘT chỗ này sau mỗi lần sửa JS/CSS (thêm ?v=… vào mọi file để trình duyệt không dùng bản cũ)
-  window.VER = 'v6l';
+  window.VER = 'v7i';
   document.write('<link rel="stylesheet" href="css/game.css?v=' + VER + '">');
 </script>
 </head>
@@ -126,11 +126,13 @@
       <section id="optBox"><h3>Cài đặt</h3>
         <label class="opt vol">Nhạc <input type="range" id="optMusic" min="0" max="100" step="5"> <output id="optMusicV"></output></label>
         <label class="opt vol">Hiệu ứng <input type="range" id="optSfx" min="0" max="100" step="5"> <output id="optSfxV"></output></label>
+        <label class="opt vol">Độ đậm hiệu ứng <input type="range" id="optFx" min="40" max="100" step="10"> <output id="optFxV"></output></label>
         <label class="opt"><input type="checkbox" id="optShake"> Rung màn hình</label>
         <label class="opt"><input type="checkbox" id="optDmgNum"> Số sát thương</label>
         <label class="opt"><input type="checkbox" id="optNoFlash"> Giảm loé màn</label>
         <label class="opt"><input type="checkbox" id="optClear"> Dễ nhìn (viền trắng vùng nguy hiểm)</label>
         <label class="opt"><input type="checkbox" id="optBig"> Chữ lớn</label>
+        <label class="opt"><input type="checkbox" id="optLight"> Ánh sáng đêm</label>
       </section>
     </div>
     <button class="btn" id="resumeBtn">Chơi tiếp</button>

@@ -1006,7 +1006,7 @@ function drawWarnings(p) {
 }
 
 /* ---------- Số sát thương: ảnh chữ số VT323 vẽ sẵn (mỗi màu một hàng), mỗi chữ số 1 drawImage ---------- */
-const NUM_GLYPHS = '0123456789+', NUM_COLORS = ['#ffffff', '#ffd166', '#ff9a3d', '#ff4d4d', '#5cff9d'];
+const NUM_GLYPHS = '0123456789+×', NUM_COLORS = ['#ffffff', '#ffd166', '#ff9a3d', '#ff4d4d', '#5cff9d'];
 const NUM_H = 10; // chiều cao chữ số (đơn vị thế giới)
 let numAtlas = null, numFontOk = false;
 if (document.fonts) document.fonts.load('16px VT323').then(() => { numFontOk = true; numAtlas = null; }, () => {});
@@ -1055,7 +1055,15 @@ function drawTexts(vis) {
 
 const dieProxy = { x: 0, y: 0, face: 1, anim: 0, r: 10, flash: 0 };
 function drawFx() {
-  const fa = SETTINGS.fxAlpha;
+  const fa = SETTINGS.fxAlpha, D = CFG.die;
+  // Hạ hàng loạt: chỉ flashMax xác mới nhất (life lớn nhất) được nháy trắng — tìm ngưỡng life của xác thứ flashMax
+  let flashLife = 0, nFlash = 0, ties = 0;
+  for (const f of G.fx.items) if (f.type === 'die' && f.life > 0.55 * f.max) nFlash++;
+  if (nFlash > D.flashMax) {
+    const ls = []; for (const f of G.fx.items) if (f.type === 'die' && f.life > 0.55 * f.max) ls.push(f.life);
+    ls.sort((a, b) => b - a); flashLife = ls[D.flashMax - 1];
+    ties = D.flashMax; for (const l of ls) if (l > flashLife) ties--; // nhiều xác chết cùng khung có life bằng nhau: chỉ cho số chỗ còn lại
+  }
   for (const f of G.fx.items) {
     const a = clamp(f.life / f.max, 0, 1);
     if (f.type === 'zap') {
@@ -1097,9 +1105,11 @@ function drawFx() {
     } else if (f.type === 'die') {
       // Quái chết: nháy trắng, co lại và mờ dần trong ~0.22 giây thay vì biến mất tức thì
       dieProxy.x = f.x; dieProxy.y = f.y; dieProxy.face = f.face; dieProxy.anim = f.anim; dieProxy.r = f.r;
-      dieProxy.flash = a > 0.55 ? 1 : 0;
+      const big = f.kind === 'player' || ENEMIES[f.kind]?.boss;
+      if (!big && a > 0.55 && (f.life < flashLife || (f.life === flashLife && ties-- <= 0))) f.dim = true; // bị bớt nháy khi quá flashMax; giữ mờ đến hết để không loé sáng lại
+      dieProxy.flash = a > 0.55 && !f.dim && !calm() ? 1 : 0;
       const k = 0.55 + 0.45 * a;
-      ctx.globalAlpha = Math.min(1, a * 1.4);
+      ctx.globalAlpha = Math.min(1, a * 1.4) * (f.dim ? 1 - D.dark : 1); // xác không được nháy thì mờ đi, chìm vào nền
       ctx.save(); ctx.translate(f.x, f.y + f.r * (1 - k)); ctx.scale(k, k); ctx.translate(-f.x, -f.y);
       draw(ctx, dieProxy, f.kind);
       ctx.restore(); ctx.globalAlpha = 1;

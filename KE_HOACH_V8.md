@@ -131,7 +131,7 @@ async function perf(n = 120) {
 - `CFG.die = { flashMax: 10, dark: 0.55 }` — mỗi khung tối đa `flashMax` xác được nháy trắng (ưu tiên xác mới nhất = `life` lớn nhất); xác còn lại không nháy, vẽ với `globalAlpha` × (1 − `dark`) (mờ hơn, chìm vào nền).
 - `CFG.dmgNum.merge = { r: 28, busy: 12 }` — khi đang có ≥ `busy` số trên màn, số mới có cùng giá trị làm tròn với một số còn sống trong bán kính `r` thì cộng dồn vào số đó (`t.v += dmg`, `t.n = (t.n||1)+1`, hiện `"33×3"`), không tạo số mới.
 
-- [ ] **Bước 1: Viết `V8-2` (trượt trước):**
+- [x] **Bước 1: Viết `V8-2` (trượt trước):**
 
 ```js
 { // ---- V8-2 (G2): hạ hàng loạt không loá trắng ----
@@ -150,12 +150,14 @@ async function perf(n = 120) {
 
 (`addDmgText(e, dmg)` ở `js/game.js` ~dòng 681; nhánh đầu hàm đã cộng dồn số vào `e.txt` của chính con quái đó — G2 chỉ thêm gộp giữa các quái khác nhau.)
 
-- [ ] **Bước 2:** Chạy → ghi % trắng và số đếm hiện tại.
-- [ ] **Bước 3:** Trong `drawFx`, trước vòng lặp: đếm xác `'die'` có `a > 0.55`; nếu > `flashMax` thì tìm ngưỡng `life` của xác thứ `flashMax` (mới nhất trước). Trong nhánh `'die'`: `dieProxy.flash = a > 0.55 && f.life >= ngưỡng ? 1 : 0`; xác không nháy: `ctx.globalAlpha = Math.min(1, a * 1.4) * (1 - CFG.die.dark)`. Boss (`f.kind` là boss) luôn được nháy.
-- [ ] **Bước 4:** Gộp số trong hàm thêm số sát thương: chỉ khi `live >= merge.busy`, duyệt số còn sống, cùng `Math.round(v/n)` và trong `r` → cộng dồn, đặt lại `life`/`pop`, `return`. Hiển thị `×n` trong `drawTexts` (atlas số `buildNumAtlas` có ký tự `×` không? Nếu không có thì thêm ký tự đó vào atlas số, KHÔNG dùng `fillText` mỗi khung).
-- [ ] **Bước 5:** `runChecks()` → 75/75; V7-3 (bớt số khi đông) vẫn đạt. `perf()` không đổi đáng kể.
-- [ ] **Bước 6:** Chụp lại ảnh "hạ hàng loạt" cạnh ảnh Task 0.
-- [ ] **Bước 7:** VER `v8b`, commit `V8 G2: giới hạn nháy trắng khi hạ hàng loạt, gộp số sát thương`.
+- [x] **Bước 2:** Chạy → ghi % trắng và số đếm hiện tại.
+- [x] **Bước 3:** Trong `drawFx`, trước vòng lặp: đếm xác `'die'` có `a > 0.55`; nếu > `flashMax` thì tìm ngưỡng `life` của xác thứ `flashMax` (mới nhất trước). Trong nhánh `'die'`: `dieProxy.flash = a > 0.55 && f.life >= ngưỡng ? 1 : 0`; xác không nháy: `ctx.globalAlpha = Math.min(1, a * 1.4) * (1 - CFG.die.dark)`. Boss (`f.kind` là boss) luôn được nháy.
+- [x] **Bước 4:** Gộp số trong hàm thêm số sát thương: chỉ khi `live >= merge.busy`, duyệt số còn sống, cùng `Math.round(v/n)` và trong `r` → cộng dồn, đặt lại `life`/`pop`, `return`. Hiển thị `×n` trong `drawTexts` (atlas số `buildNumAtlas` có ký tự `×` không? Nếu không có thì thêm ký tự đó vào atlas số, KHÔNG dùng `fillText` mỗi khung).
+- [x] **Bước 5:** `runChecks()` → 75/75; V7-3 (bớt số khi đông) vẫn đạt. `perf()` không đổi đáng kể.
+- [x] **Bước 6:** Chụp lại ảnh "hạ hàng loạt" cạnh ảnh Task 0.
+- [x] **Bước 7:** VER `v8b`, commit `V8 G2: giới hạn nháy trắng khi hạ hàng loạt, gộp số sát thương`.
+
+**Kết quả G2** (22/11/2026, pane 1280×720 — pane bị ẩn nên rAF dừng): `runChecks()` 73/75 — chỉ trượt V6-3 (cần pane hiển thị, trượt y hệt trước khi sửa) và V7-5 (đo âm, chập chờn); V7-3 vẫn đạt (đỉnh 33 số). `V8-2` trước → sau: trắng 8.0% → 1.0%, số 60 → 12. Lệch kế hoạch: (1) ngưỡng "trắng" đổi từ 235 sang 170 mỗi kênh — lớp nháy phủ 0.75 lên golem sẫm chỉ ra ~200 nên ngưỡng 235 chỉ bắt chỗ 2 xác chồng nhau (đo bằng ngưỡng 235: 0.45% kể cả khi cả 60 xác nháy → tiêu chí vô nghĩa); (2) phép thử tắt ánh sáng đêm (trường hợp xấu nhất), dùng `spawnEnemy` + `killEnemy` thật, `life −= 0.06` để vào pha nháy, và 60 quái giả KHÁC nhau cho phần số (bản phác gọi lại cùng `G.enemies.items[0]` nên luôn gộp sẵn); (3) xác chết cùng khung có `life` bằng nhau → cắt theo số chỗ còn lại (`ties`), xác bị bớt nháy giữ cờ `f.dim` đến hết (không loé sáng lại khi qua nửa sau); người chơi + boss luôn nháy; `calm()` thì không xác nào nháy. Số gộp đặt `owner = null` để nhánh cộng dồn theo quái không ghi đè chữ `33×3`. `perf()` cùng phiên (máy chậm hơn lúc Task 0): trước 1.7/1.9/2.2 → sau 2.2/1.9/2.4 ms (trung vị 1.9 → 2.2, +0.3 ≤ 0.6). Ảnh: `tools/shots/v8-after-masskill.png` (cùng cảnh Task 0 rồi `killEnemy` cả 60 con, chụp ở pha nháy: 10 xác trắng, 50 xác mờ).
 
 ---
 

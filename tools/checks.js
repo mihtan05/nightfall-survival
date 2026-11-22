@@ -721,6 +721,24 @@ window.runChecks = async function () {
     ok('V8-1', '1.1 Golem ở 200 đơn vị (ngoài đèn nhân vật) chênh độ sáng với nền ≥ 35% khi bật ánh sáng đêm',
       contrast >= 0.35, `nền ${bg.toFixed(1)}, quái ${fg.toFixed(1)}, chênh ${(contrast * 100).toFixed(0)}%`);
   }
+  { // ---- V8-2 (G2): hạ hàng loạt không loá trắng, số sát thương gộp ----
+    // "trắng" = cả 3 kênh > 170: lớp nháy trắng phủ 0.75 lên golem sẫm chỉ ra ~200, ngưỡng 235 chỉ bắt chỗ 2 xác chồng nhau (đo: nháy 8%, không nháy 0.25%)
+    const whiteShare = () => { const d = ctx.getImageData(0, 0, cv.width, cv.height).data; let w = 0; for (let i = 0; i < d.length; i += 64) if (d[i] > 170 && d[i + 1] > 170 && d[i + 2] > 170) w++; return w / (d.length / 64); };
+    fresh(); v.skipTo(2); G.enemies.clear(); G.gems.clear(); G.fx.clear(); G.texts.clear(); G.shake = 0;
+    const lightWas = SETTINGS.light, noFlashWas = SETTINGS.noFlash, numWas = SETTINGS.dmgNum;
+    SETTINGS.light = false; SETTINGS.noFlash = false; SETTINGS.dmgNum = true; // trường hợp xấu nhất: không có lớp đêm làm tối nháy trắng
+    for (let i = 0; i < 60; i++) { const e = spawnEnemy('golem', P().x + rand(-150, 150), P().y + rand(-100, 100)); e.vx = e.vy = 0; e.inT = 0; }
+    for (const e of [...G.enemies.items]) killEnemy(e); // đường hạ quái thật → 60 hiệu ứng 'die'
+    for (const f of G.fx.items) if (f.type === 'die') f.life -= 0.06; // còn ~73% thời gian: đang trong pha nháy trắng (a > 0.55)
+    render(1); const ws = whiteShare();
+    G.texts.clear(); G.dmgAvg = 0;
+    for (let i = 0; i < 60; i++) addDmgText({ x: P().x + (i % 6) * 4, y: P().y + ((i / 6) | 0) * 2, r: 8 }, 33); // 60 quái khác nhau, sát nhau
+    let nums = 0; for (const t of G.texts.items) if (t.num && !t.dead) nums++;
+    G.texts.clear(); G.fx.clear();
+    SETTINGS.light = lightWas; SETTINGS.noFlash = noFlashWas; SETTINGS.dmgNum = numWas;
+    ok('V8-2', '2.1 Hạ 60 quái cùng lúc: điểm ảnh trắng ≤ 4% màn; 60 đòn 33 sát nhau thành ≤ 15 số',
+      ws <= 0.04 && nums <= 15, `trắng ${(ws * 100).toFixed(1)}%, số ${nums}`);
+  }
   SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.applyVolumes();
   G.enemies.clear(); G.boss = null; G.zones.length = 0;
   CFG.hints.on = true;

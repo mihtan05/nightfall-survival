@@ -47,7 +47,9 @@ const CFG = {
   light: { player: 150, playerCol: '#fff2d0', gem: 14, gemCol: '#7fe6ff', bullet: 24, zone: 1.25, zoneCol: '#ff5040', boss: 120, elite: 55, eliteCol: '#ffd166', rageCol: '#ff5a6e', rageMul: 1.3, max: 80, autoOff: { ms: 20, hold: 3 } },
   playerRing: { a: 0.35, clear: 0.8 }, // vòng sáng quanh nhân vật luôn bật (đậm hơn khi bật Dễ nhìn)
   juice: { pop: 0.09, sx: 0.18, sy: 0.12 }, // phản hồi trúng đòn: thời gian nảy (giây), giãn ngang và co dọc ở đỉnh
-  dmgNum: { busy: 40, max: 60, keep: 0.6, ema: 0.05 }, // bớt số sát thương khi đông: từ busy số trở lên bỏ đòn < keep × trung bình trượt (ema), tối đa max số cùng lúc
+  dmgNum: { busy: 40, max: 60, keep: 0.6, ema: 0.05, // bớt số sát thương khi đông: từ busy số trở lên bỏ đòn < keep × trung bình trượt (ema), tối đa max số cùng lúc
+    merge: { r: 28, busy: 12 } }, // từ busy số trở lên: số mới bằng một số còn sống trong bán kính r thì cộng vào số đó (hiện "33×3")
+  die: { flashMax: 10, dark: 0.55 }, // hạ hàng loạt: mỗi khung tối đa flashMax xác nháy trắng (mới nhất trước, boss luôn nháy), xác còn lại mờ đi dark
 };
 
 // Cài đặt người chơi (lưu localStorage)

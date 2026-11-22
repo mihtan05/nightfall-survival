@@ -667,7 +667,7 @@ function addText(x, y, txt, color) {
   if (G.texts.items.length >= CFG.textCap) return;
   const t = G.texts.get();
   t.x = x + rand(-4, 4); t.y = y; t.txt = txt; t.life = 0.6; t.color = color || '#fff';
-  t.owner = null; t.size = 1; t.pop = 0; t.vx = rand(-8, 8); t.num = /^\+?\d+$/.test(txt);
+  t.owner = null; t.size = 1; t.pop = 0; t.vx = rand(-8, 8); t.num = /^\+?\d+$/.test(txt); t.v = undefined; // ô dùng lại từ số sát thương cũ: không cho gộp nhầm
   return t;
 }
 
@@ -688,15 +688,24 @@ function addDmgText(e, dmg) {
   const D = CFG.dmgNum;
   G.dmgAvg += (dmg - G.dmgAvg) * D.ema;
   let live = 0; for (const t of G.texts.items) if (t.num && !t.dead) live++;
+  if (live >= D.merge.busy) { // đông: gộp vào số bằng giá trị còn sống gần đó (giữa các quái khác nhau)
+    const v = Math.round(dmg), x = e.x, y = e.y - e.r, r2 = D.merge.r * D.merge.r;
+    for (const t of G.texts.items) {
+      if (t.dead || t.v === undefined || Math.round(t.v / t.n) !== v || (t.x - x) ** 2 + (t.y - y) ** 2 > r2) continue;
+      t.v += dmg; t.n++; t.txt = v + '×' + t.n; t.life = 0.6; t.pop = 0.12;
+      t.owner = null; // số gộp không còn là tổng của riêng một quái → nhánh cộng dồn theo quái ở đầu hàm bỏ qua nó
+      return;
+    }
+  }
   if (live >= D.max || (live >= D.busy && dmg < D.keep * G.dmgAvg)) return;
   const t = G.texts.get();
-  t.owner = e; e.txt = t; t.v = dmg; t.txt = Math.round(dmg);
+  t.owner = e; e.txt = t; t.v = dmg; t.n = 1; t.txt = Math.round(dmg);
   t.x = e.x + rand(-4, 4); t.y = e.y - e.r; t.life = 0.6; t.pop = 0.12; t.vx = rand(-8, 8); t.num = true;
   styleDmg(t);
 }
 
 function addFx(type, x, y, life) {
-  const f = G.fx.get(); f.type = type; f.x = x; f.y = y; f.life = f.max = life; return f;
+  const f = G.fx.get(); f.type = type; f.x = x; f.y = y; f.life = f.max = life; f.dim = false; return f;
 }
 
 function burst(x, y, color, n, spd = 120, size = 3, life = 0.5) {

@@ -76,9 +76,11 @@ async function perf(n = 120) {
 
 ### Task 0: Mốc "trước V8"
 
-- [ ] **Bước 1:** `runChecks()` → ghi số đạt (mong đợi 73/73, V6-2/V6-3 cần pane hiện).
-- [ ] **Bước 2:** `perf()` 3 lần, ghi trung vị → **mốc ren** cho cả V8.
-- [ ] **Bước 3:** Chụp 4 ảnh mốc (mỗi đợt: `__vs.skipTo(i)`, `__vs.spawn(60, 'golem')`, `__vs.tick(1)`), cộng 1 ảnh "hạ hàng loạt" (đợt 3, 60 golem, `__vs.give('nova', 8)`, chờ 3 giây thật). Lưu vào `tools/shots/v8-before-*.png` (thư mục mới, KHÔNG nằm trong `.vercelignore` thì thêm vào).
+- [x] **Bước 1:** `runChecks()` → ghi số đạt (mong đợi 73/73, V6-2/V6-3 cần pane hiện).
+- [x] **Bước 2:** `perf()` 3 lần, ghi trung vị → **mốc ren** cho cả V8.
+- [x] **Bước 3:** Chụp 4 ảnh mốc (mỗi đợt: `__vs.skipTo(i)`, `__vs.spawn(60, 'golem')`, `__vs.tick(1)`), cộng 1 ảnh "hạ hàng loạt" (đợt 3, 60 golem, `__vs.give('nova', 8)`, chờ 3 giây thật). Lưu vào `tools/shots/v8-before-*.png` (thư mục mới, KHÔNG nằm trong `.vercelignore` thì thêm vào).
+
+**Kết quả Task 0** (22/11/2026, pane 1280×720, ZOOM 2): `runChecks()` 73/73 (lần chạy sau đó V7-5 — đo âm — chập chờn, không liên quan đồ hoạ). `perf()` 3 lần (máy thật, GPU): 1.3 / 1.2 / 1.1 ms → **mốc ren 1.2 ms** (độ phân giải `performance.now` 0.1 ms). Ảnh: `tools/shots/v8-before-wave1..4.png` + `v8-before-masskill.png` — lệch kế hoạch: `spawn(60) + tick(1)` để quái ngoài màn hình nên đặt 60 golem cố định quanh người chơi (100–280 đơn vị) bằng `spawnEnemy`, `tick(0.2)`; ảnh lấy từ `cv.toDataURL` (chỉ canvas, không có HUD). `tools/` đã nằm trong `.vercelignore` nên không cần thêm dòng.
 
 ---
 
@@ -90,7 +92,7 @@ async function perf(n = 120) {
 - `CFG.rim = { max: 80, near: 90, far: 260, a: 0.22, floor: 0.12 }` — tối đa `max` quái gần nhất; trong `near` không vẽ (đèn nhân vật đã đủ), từ `near` → `far` độ đậm tăng dần tới `a`; `floor` cộng thêm vào `ambient` khi dựng lightmap (nâng sàn sáng chung).
 - `drawRim(camX, camY): void` — vẽ `sh.white` (bóng trắng của sprite, có sẵn từ `sheetFor`) với `globalAlpha = a × k × fxAlpha`, kiểu `'source-over'`, cho các quái trong tầm nhìn ngoài `near`. Không vẽ cho boss / quái đang `inT`.
 
-- [ ] **Bước 1: Viết `V8-1` (trượt trước)** — đo tương phản bằng mặt nạ: vẽ 1 khung với quái, 1 khung không quái, lấy độ chênh độ sáng trung bình tại vị trí 20 con golem ở cách người chơi 200 đơn vị.
+- [x] **Bước 1: Viết `V8-1` (trượt trước)** — đo tương phản bằng mặt nạ: vẽ 1 khung với quái, 1 khung không quái, lấy độ chênh độ sáng trung bình tại vị trí 20 con golem ở cách người chơi 200 đơn vị.
 
 ```js
 { // ---- V8-1 (G1): quái đọc được trong bóng tối ----
@@ -109,7 +111,9 @@ async function perf(n = 120) {
 
 (`spawnEnemy(type, x, y)` trả về quái, `game.js` dòng 122. `cv`, `ZOOM`, `SCREEN` là biến có sẵn của `render.js`.)
 
-- [ ] **Bước 2:** Chạy → ghi số chênh hiện tại (mong đợi trượt, khoảng 10–25%). **Nếu đã ≥ 35%** thì báo người dùng và hỏi có cần G1 không trước khi làm tiếp.
+- [x] **Bước 2:** Chạy → ghi số chênh hiện tại (mong đợi trượt, khoảng 10–25%). **Nếu đã ≥ 35%** thì báo người dùng và hỏi có cần G1 không trước khi làm tiếp.
+  - **Kết quả bước 2:** V8-1 ĐÃ ĐẠT khi chưa sửa gì: nền 12.0, quái 17.6–18.2, chênh 47–52% (4 lần đo). Lưu ý: nền rất tối nên tỉ lệ tương đối phóng đại — chênh tuyệt đối chỉ ≈ 6/255. Theo kế hoạch: DỪNG, chờ người dùng quyết có làm G1 không (hoặc đổi thước đo, vd. chênh tuyệt đối). V8-1 đã thêm vào `tools/checks.js` (74 tiêu chí).
+  - **Quyết định:** BỎ bước 3–7 của G1. Ảnh 1280×720 (`v8-before-wave3.png`) cho thấy golem ngoài đèn vẫn rõ dáng nhờ viền sprite Phase 1; ảnh 800×600 lúc lập kế hoạch bị thu nhỏ nên trông tối hơn thực tế. Giữ `V8-1` làm tiêu chí chống thụt lùi (các task sau không được làm quái chìm). Nếu người thật thấy quái khó nhìn (phiếu câu 1) thì làm lại G1 từ bước 3.
 - [ ] **Bước 3:** Thêm `CFG.rim`. Trong `drawLights`, ngay sau khi tô `ambient`: tô thêm `rgba(255,255,255,floor)` kiểu `'lighter'` (nâng sàn sáng). Chạy lại, ghi số.
 - [ ] **Bước 4:** Viết `drawRim`. Gom quái trong tầm nhìn vào mảng tạm (dùng lại `drawList` đã sắp theo Y của khung, lọc `!== p`), chọn `max` con gần nhất bằng khoảng cách bình phương (không sort toàn bộ khi > `max`: một vòng chọn ngưỡng là đủ — `shortcut: sort cả mảng khi ≤ 300 quái, đổi sang chọn k nhỏ nhất nếu perf vượt`). Với mỗi con: `sh = sheetFor(...)`, `q = sh.cells.get(fr)` y như `draw()` — tách đoạn lấy `sh/q/x/y/flip` trong `draw()` thành hàm `spriteRef(e, kind)` dùng chung, KHÔNG chép code.
 - [ ] **Bước 5:** Gọi `if (lightOn()) drawRim(camX, camY);` ngay SAU `drawLights` (đã đặt lại transform thế giới). Tắt hẳn khi `!lightOn()` (không có bóng tối thì không cần).

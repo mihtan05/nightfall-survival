@@ -708,6 +708,19 @@ window.runChecks = async function () {
       snapped && kept && a === 'normal' && b === 'late' && c === 'boss' && m === 'title' && w === 'win' && l === null && fb === 'normal' && fm === null,
       `nối ${snapped}/${kept}; ${a}, ${b}, ${c}, ${m}, ${w}, ${l}; thiếu file: ${fb}, ${fm}`);
   }
+  { // ---- V8-1 (G1): quái đọc được trong bóng tối ----
+    const lumAt = (pts) => { let s = 0; for (const [x, y] of pts) { const d = ctx.getImageData(x - 2, y - 2, 4, 4).data; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; } return s / (pts.length * 16); };
+    fresh(); v.skipTo(2); G.enemies.clear(); G.gems.clear(); G.shake = 0; SETTINGS.light = true; light.failed = false;
+    const ring = []; for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; ring.push([P().x + Math.cos(a) * 200, P().y + Math.sin(a) * 200]); }
+    const scr = ([x, y]) => [Math.round(cv.width / 2 + (x - P().x) * ZOOM * SCREEN), Math.round(cv.height / 2 + (y - P().y) * ZOOM * SCREEN)];
+    render(1); const bg = lumAt(ring.map(scr));
+    for (const [x, y] of ring) { const e = spawnEnemy('golem', x, y); e.vx = e.vy = 0; e.inT = 0; }
+    render(1); const fg = lumAt(ring.map(scr));
+    const contrast = Math.abs(fg - bg) / Math.max(1, bg);
+    G.enemies.clear();
+    ok('V8-1', '1.1 Golem ở 200 đơn vị (ngoài đèn nhân vật) chênh độ sáng với nền ≥ 35% khi bật ánh sáng đêm',
+      contrast >= 0.35, `nền ${bg.toFixed(1)}, quái ${fg.toFixed(1)}, chênh ${(contrast * 100).toFixed(0)}%`);
+  }
   SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.applyVolumes();
   G.enemies.clear(); G.boss = null; G.zones.length = 0;
   CFG.hints.on = true;

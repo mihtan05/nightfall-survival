@@ -222,19 +222,19 @@ const ITEMS = {
    mix: thành phần quái theo giây trong đợt; events: sự kiện theo giây trong đợt. */
 const WAVE_DEFS = [
   { name: 'Nghĩa địa thức giấc', dur: 110, rate: [1.1, 3.0], boss: 'bossZombie', ambient: '#8088b8',
-    ground: { tint: 'rgba(10,8,18,0.50)', decor: ['tomb', 'grass', 'grass'], light: '5,3,12', mote: '#bcd6ff' },
+    ground: { tint: 'rgba(10,8,18,0.50)', decor: ['tomb', 'grass', 'grass'], light: '5,3,12', mote: '#bcd6ff' }, weather: { kind: 'fog', col: '#9fb0dc', a: 0.10 },
     mix: [{ t: 0, mix: { bat: 1 } }, { t: 20, mix: { bat: 3, slime: 1 } }, { t: 55, mix: { bat: 2, slime: 2, splitter: 0.5 } }, { t: 85, mix: { bat: 2, slime: 2, skeleton: 1, splitter: 0.5 } }], elites: [75],
     events: [{ t: 30, kind: 'circle', type: 'bat', n: 26, msg: 'Bị bao vây!' }, { t: 65, kind: 'swarm', type: 'bat', n: 25, msg: 'Bầy tiểu quỷ kéo đến!' }] },
   { name: 'Tiếng gọi tử linh', dur: 140, rate: [2.0, 3.6], boss: 'bossNecro', ambient: '#6f78a8',
-    ground: { tint: 'rgba(38,10,48,0.50)', decor: ['bones', 'rune', 'bones'], light: '12,3,22', mote: '#c9a6ff' },
+    ground: { tint: 'rgba(38,10,48,0.50)', decor: ['bones', 'rune', 'bones'], light: '12,3,22', mote: '#c9a6ff' }, weather: { kind: 'fog', col: '#a58ad8', a: 0.10 },
     mix: [{ t: 0, mix: { bat: 3, slime: 2, skeleton: 1 } }, { t: 30, mix: { bat: 2, slime: 2, skeleton: 2, ghost: 1, bomber: 1 } }, { t: 110, mix: { bat: 2, slime: 2, skeleton: 2, ghost: 1, golem: 1, bomber: 1, charger: 1 } }], elites: [60, 110],
     events: [{ t: 50, kind: 'circle', type: 'slime', n: 36, msg: 'Bị bao vây!' }, { t: 110, kind: 'swarm', type: 'bat', n: 45, msg: 'Bầy tiểu quỷ kéo đến!' }] },
   { name: 'Đất rung chuyển', dur: 140, rate: [4.2, 7.0], boss: 'bossOgre', ambient: '#6a5f96',
-    ground: { tint: 'rgba(48,26,8,0.50)', decor: ['crack', 'rock', 'crack'], light: '13,7,3', mote: '#b89a72' },
+    ground: { tint: 'rgba(48,26,8,0.50)', decor: ['crack', 'rock', 'crack'], light: '13,7,3', mote: '#b89a72' }, weather: { kind: 'dust', col: '#b4a888', a: 0.08 },
     mix: [{ t: 0, mix: { bat: 2, skeleton: 3, ghost: 2, golem: 1, bomber: 2, charger: 2, splitter: 1 } }, { t: 70, mix: { bat: 3, slime: 2, skeleton: 3, ghost: 2, golem: 1, bomber: 2, charger: 2, splitter: 1 } }], elites: [60, 110],
     events: [{ t: 45, kind: 'circle', type: 'skeleton', n: 40, msg: 'Bị bao vây!' }, { t: 100, kind: 'swarm', type: 'skeleton', n: 50, msg: 'Đội quân xương trỗi dậy!' }] },
   { name: 'Màn đêm cuối cùng', dur: 140, rate: [7.0, 11.5], boss: 'boss', ambient: '#7a5560',
-    ground: { tint: 'rgba(60,6,14,0.55)', decor: ['blood', 'ember', 'ember'], light: '18,2,5', mote: '#ff9a4a' },
+    ground: { tint: 'rgba(60,6,14,0.55)', decor: ['blood', 'ember', 'ember'], light: '18,2,5', mote: '#ff9a4a' }, weather: { kind: 'ash', col: '#ffdc8c', a: 0.12 },
     mix: [{ t: 0, mix: { bat: 3, skeleton: 4, ghost: 2, golem: 2, bomber: 2, charger: 3, splitter: 1 } }, { t: 70, mix: { bat: 4, skeleton: 4, ghost: 3, golem: 2, bomber: 2, charger: 3, splitter: 1 } }], elites: [60, 110],
     events: [{ t: 40, kind: 'circle', type: 'golem', n: 24, msg: 'Quỷ khổng lồ bao vây!' }, { t: 95, kind: 'swarm', type: 'bat', n: 80, msg: 'Màn đêm cuối cùng!' }] },
 ];
@@ -398,6 +398,10 @@ CFG.decals = { cap: 40 };            // vết trên nền (cháy sém, nứt đ�
 // V8 G4: vết loang khi quái thường chết (màu quái tối đi `dark`) — giới hạn riêng `cap`, không đẩy vết sét/sóng ra;
 // `chance` mỗi con, sống `life` giây, bán kính r × e.sc, độ đậm a (Dễ nhìn: aClear)
 CFG.remains = { cap: 50, chance: 0.4, life: 7, r: [9, 14], a: 0.55, aClear: 0.3, dark: 0.55 };
+// V8 G5: thời tiết theo đợt (WAVE_DEFS[i].weather) — `blobs` mảng sương cỡ `size` đơn vị trôi `drift` đơn vị/giây, thị sai `parallax`,
+// mờ dần trong bán kính `clearR` quanh tâm màn (không che nhân vật); tro: `ash` hạt rơi `ashFall` đơn vị/giây, độ đậm = weather.a × ashA.
+// Màu thời tiết lệch sắc độ ≥ 35° so với CFG.light.zoneCol (luật màu V7). Chỉ vẽ khi bật ánh sáng đêm, tắt khi Dễ nhìn.
+CFG.weather = { blobs: 10, size: [220, 360], drift: 6, parallax: 0.35, ash: 40, ashFall: 14, ashA: [2.5, 5], clearR: 120 };
 CFG.upgradeCue = { ring: 70, ringLife: 0.45 }; // lúc chọn thẻ vũ khí: vòng màu vũ khí quanh người (bán kính, giây)
 /* Bảng hình dáng: mỗi vũ khí một màu chủ đạo (col, dùng cho vòng lên cấp + loé khi bắn) và 4 bậc. Trường chung:
      col/col2 = màu chính/phụ · trail = độ dài vệt (đơn vị thế giới) · grow = phần cộng thêm cho MỖI cấp trong cùng bậc

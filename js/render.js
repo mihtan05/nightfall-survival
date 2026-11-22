@@ -573,6 +573,50 @@ function drawMotes(camX, camY, t = G.t, wi = waveIdx()) {
   ctx.globalAlpha = 1;
 }
 
+/* Thời tiết theo đợt (V8 G5): sương/bụi = mảng 128×128 vẽ sẵn theo màu, cuộn chậm có thị sai; tro = hạt rơi chéo.
+   Toạ độ màn hình (px CSS), vẽ sau lightmap nên giữ màu riêng. Gọi chỉ khi lightOn() — tắt đèn đêm thì không có sương trên nền sáng. */
+const FOG_IMG = {};
+function fogImg(col) {
+  let c = FOG_IMG[col]; if (c) return c;
+  c = FOG_IMG[col] = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), rgb = hexRgb(col);
+  for (let i = 0; i < 5; i++) {
+    const x = 64 + (i ? hash(i, 31) % 50 - 25 : 0), y = 64 + (i ? hash(i, 37) % 50 - 25 : 0), r = i ? 26 + hash(i, 41) % 14 : 60;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(${rgb},0.5)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  }
+  return c;
+}
+const FOG = Array.from({ length: CFG.weather.blobs }, () => ({ x: Math.random(), y: Math.random(), s: Math.random(), vx: rand(0.5, 1), vy: rand(-0.4, 0.4) }));
+const ASH = Array.from({ length: CFG.weather.ash }, () => ({ x: Math.random(), y: Math.random(), v: rand(0.6, 1), s: Math.random() < 0.5 ? 1 : 2, a: rand(CFG.weather.ashA[0], CFG.weather.ashA[1]) }));
+function drawWeather(camX, camY, t, wi) {
+  const wd = WAVE_DEFS[wi].weather, C = CFG.weather, k = W / VW;
+  if (!wd || SETTINGS.clear) return;
+  if (wd.kind === 'ash') {
+    ctx.fillStyle = wd.col;
+    for (const m of ASH) {
+      const sp = C.ashFall * m.v;
+      let x = (m.x * W + (sp * 0.5 * t - camX * C.parallax) * k) % W, y = (m.y * H + (sp * t - camY * C.parallax) * k) % H;
+      if (x < 0) x += W; if (y < 0) y += H;
+      ctx.globalAlpha = Math.min(1, wd.a * m.a); ctx.fillRect(x, y, m.s, m.s);
+    }
+  } else {
+    const img = fogImg(wd.col);
+    ctx.imageSmoothingEnabled = true;   // phóng 128 px lên ~1000 px: không làm mượt thì thành ô vuông
+    for (const b of FOG) {   // x, y: tâm mảng sương, đơn vị thế giới tính từ góc màn
+      const s = C.size[0] + b.s * (C.size[1] - C.size[0]), spX = VW + s, spY = VH + s;
+      let x = (b.x * spX + C.drift * b.vx * t - camX * C.parallax) % spX, y = (b.y * spY + C.drift * b.vy * t - camY * C.parallax) % spY;
+      if (x < 0) x += spX; if (y < 0) y += spY;
+      x -= s / 2; y -= s / 2;
+      ctx.globalAlpha = wd.a * clamp(Math.hypot(x - VW / 2, y - VH / 2) / C.clearR, 0.3, 1);
+      ctx.drawImage(img, (x - s / 2) * k, (y - s / 2) * k, s * k, s * k);
+    }
+    ctx.imageSmoothingEnabled = false;
+  }
+  ctx.globalAlpha = 1;
+}
+
 /* Lớp phát sáng: quầng sáng vẽ sẵn (64×64), cộng sáng một lượt dưới mọi vật. Có giới hạn số quầng mỗi khung. */
 const GLOW_COLORS = { pink: '255,77,196', purple: '200,107,255', cyan: '127,212,255', gold: '255,209,102', green: '92,255,157', red: '255,59,92' };
 const GLOWS = {};
@@ -1190,6 +1234,7 @@ function renderAttract(dt) {
   const L = attract.list; L.length = 0; for (const m of attract.mobs) L.push(m); L.sort(byY);
   for (const m of L) { if (Assets.get(m.type)) drawShadow(m); draw(ctx, m, m.type); }
   ctx.setTransform(SCREEN, 0, 0, SCREEN, 0, 0);
+  if (lightOn()) drawWeather(camX, camY, t, 0);
   drawVignette(0, 0);
   drawMotes(camX, camY, t, 0);
 }
@@ -1273,7 +1318,11 @@ function renderScene() {
   ctx.globalAlpha = 1;
   drawFx();
   drawSfx(false, vis);
-  if (lightOn()) { drawLights(camX, camY); ctx.setTransform(ZOOM, 0, 0, ZOOM, -camX * ZOOM, -camY * ZOOM); }
+  if (lightOn()) {
+    drawLights(camX, camY);
+    ctx.setTransform(SCREEN, 0, 0, SCREEN, 0, 0); drawWeather(camX, camY, G.t, waveIdx());   // sương/tro trên lightmap, dưới đạn quái
+    ctx.setTransform(ZOOM, 0, 0, ZOOM, -camX * ZOOM, -camY * ZOOM);
+  }
   for (const s of G.shots.items) if (vis(s)) draw(ctx, s, 'shot'); // đạn quái luôn nằm trên mọi hiệu ứng
   drawWarnings(p);
   drawTexts(vis);

@@ -755,6 +755,35 @@ window.runChecks = async function () {
     ok('V8-4', '4.1 Hạ 200 quái: có vết loang, ≤ cap riêng, vết sét cũ vẫn còn; sau life + 1 giây hết vết; boss và thùng gỗ không để vết',
       st > 0 && st <= R.cap && kept && bc === 0 && left === 0, `vết ${st}/${R.cap}, sét còn ${kept}, boss+thùng ${bc}, còn sau chờ ${left}`);
   }
+  { // ---- V8-5 (G5): sương, bụi, tro theo đợt ----
+    const hue = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255), M = Math.max(r, g, b), m = Math.min(r, g, b), d = M - m;
+      if (!d) return 0; const x = M === r ? ((g - b) / d) % 6 : M === g ? (b - r) / d + 2 : (r - g) / d + 4; return (x * 60 + 360) % 360; };
+    const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d, 360 - d); };
+    const has = typeof drawWeather === 'function', clearWas = SETTINGS.clear, lightWas = SETTINGS.light;
+    const calls = fn => { let n = 0; const di = ctx.drawImage, fr = ctx.fillRect;   // đếm lệnh vẽ trong fn
+      ctx.drawImage = function () { n++; return di.apply(this, arguments); }; ctx.fillRect = function () { n++; return fr.apply(this, arguments); };
+      try { fn(); } finally { delete ctx.drawImage; delete ctx.fillRect; } return n; };
+    let drawn = [], clearN = -1, endless = 'không có drawWeather', maxCh = 1, hueMin = 0;
+    if (has) {
+      SETTINGS.clear = false; for (let i = 0; i < 4; i++) drawn.push(calls(() => drawWeather(0, 0, 1, i)));
+      SETTINGS.clear = true; clearN = 0; for (let i = 0; i < 4; i++) clearN += calls(() => drawWeather(0, 0, 1, i));
+      SETTINGS.clear = false; SETTINGS.light = true; light.failed = false;
+      fresh(); v.skipTo(6); try { render(1); endless = calls(() => render(1)) > 0 ? 'ok' : 'không vẽ'; } catch (e) { endless = e.message; }
+      // tâm màn (người chơi): độ sáng trung bình vùng 40×40 px khi có / không có thời tiết
+      const lum = () => { const d = ctx.getImageData((cv.width >> 1) - 20, (cv.height >> 1) - 20, 40, 40).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; return s / (d.length / 4); };
+      const dw = window.drawWeather; maxCh = 0;
+      for (let i = 0; i < 4; i++) {
+        v.skipTo(i); G.enemies.clear(); G.gems.clear(); G.fx.clear(); G.parts.clear(); G.texts.clear(); G.shake = 0;
+        render(1); const on = lum(); window.drawWeather = () => {}; render(1); const off = lum(); window.drawWeather = dw;
+        maxCh = Math.max(maxCh, Math.abs(on - off) / Math.max(1, off));
+      }
+      hueMin = Math.min(...WAVE_DEFS.map(w => w.weather ? hdist(w.weather.col, CFG.light.zoneCol) : 0));
+      SETTINGS.clear = clearWas; SETTINGS.light = lightWas;
+    }
+    ok('V8-5', '5.1 Thời tiết: mỗi đợt có vẽ, Dễ nhìn thì không vẽ gì; đợt 7 (vô tận) không lỗi; tâm màn đổi ≤ 8%; màu lệch ≥ 35° so với đỏ nguy hiểm',
+      has && drawn.every(n => n > 0) && clearN === 0 && endless === 'ok' && maxCh <= 0.08 && hueMin >= 35,
+      `vẽ ${drawn.join('/')}, Dễ nhìn ${clearN}, vô tận ${endless}, tâm đổi ${(maxCh * 100).toFixed(1)}%, sắc độ ≥ ${hueMin.toFixed(0)}°`);
+  }
   SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.applyVolumes();
   G.enemies.clear(); G.boss = null; G.zones.length = 0;
   CFG.hints.on = true;

@@ -227,11 +227,13 @@ const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d
 - `fogImg(col)` — mảng sương 128×128 vẽ sẵn (vài gradient tròn chồng), lưu theo màu.
 - `drawWeather(camX, camY, t, wi)` — `fog`/`dust`: `blobs` mảng sương cuộn chậm với thị sai `parallax`, vẽ ở toạ độ màn; `ash`: `ash` hạt rơi chéo chậm (như `drawMotes` nhưng rơi xuống, sáng nhẹ). Vẽ SAU `drawLights` (sương nhận màu riêng, không bị lightmap làm đen), TRƯỚC đạn quái.
 
-- [ ] **Bước 1: Viết `V8-5` (trượt trước):** (a) `SETTINGS.clear = true` → `drawWeather` không vẽ gì (đếm bằng cách bọc `ctx.drawImage`/`fillRect` trong 1 khung); (b) đợt 7 (vô tận) không ném lỗi; (c) điểm ảnh ở tâm màn (người chơi) độ sáng đổi ≤ 8% khi bật/tắt thời tiết (sương không che nhân vật).
-- [ ] **Bước 2:** Viết `fogImg`, `drawWeather`. Mảng sương tránh tâm màn: độ đậm × `clamp(khoảng cách tới tâm / 120, 0.3, 1)`.
-- [ ] **Bước 3:** Gọi trong `renderScene` và `renderAttract` (đợt 1).
-- [ ] **Bước 4:** `runChecks()` → 78/78, `perf()` ≤ +0,6 ms. Chụp 4 ảnh đợt.
-- [ ] **Bước 5:** VER `v8e`, commit `V8 G5: sương, bụi, tro theo đợt`.
+- [x] **Bước 1: Viết `V8-5` (trượt trước):** (a) `SETTINGS.clear = true` → `drawWeather` không vẽ gì (đếm bằng cách bọc `ctx.drawImage`/`fillRect` trong 1 khung); (b) đợt 7 (vô tận) không ném lỗi; (c) điểm ảnh ở tâm màn (người chơi) độ sáng đổi ≤ 8% khi bật/tắt thời tiết (sương không che nhân vật).
+- [x] **Bước 2:** Viết `fogImg`, `drawWeather`. Mảng sương tránh tâm màn: độ đậm × `clamp(khoảng cách tới tâm / 120, 0.3, 1)`.
+- [x] **Bước 3:** Gọi trong `renderScene` và `renderAttract` (đợt 1).
+- [x] **Bước 4:** `runChecks()` → 78/78, `perf()` ≤ +0,6 ms. Chụp 4 ảnh đợt.
+- [x] **Bước 5:** VER `v8e`, commit `V8 G5: sương, bụi, tro theo đợt`.
+
+**Kết quả G5** (22/11/2026, pane 1280×720 hiện, G3 vẫn bỏ qua nên đếm 76 → 77): `runChecks()` 77/77. `V8-5` trước → sau: `không có drawWeather` (trượt) → `vẽ 10/10/10/40, Dễ nhìn 0, vô tận ok, tâm đổi 1.5%, sắc độ ≥ 37°`. Lệch kế hoạch: (1) **màu**: bụi đợt 3 `#b89a72` (lệch 29°) → `#b4a888` (39°), tro đợt 4 `#ffb46a` (25°) → `#ffdc8c` (37°) để giữ luật màu V7; V8-5 thêm (d) kiểm mọi `weather.col` lệch ≥ 35° so với `CFG.light.zoneCol`, và (a) kiểm thêm chiều ngược "mỗi đợt CÓ vẽ" (không thì "Dễ nhìn không vẽ gì" đạt sẵn); (2) thời tiết **chỉ vẽ khi `lightOn()`** (trong khối `drawLights` của `renderScene`; menu cũng vậy) — theo trọng tâm review 1 và Task 7: tắt ánh sáng đêm/tự tắt vì máy yếu thì không có sương trên nền sáng; (3) thêm vào `CFG.weather`: `ashFall` 14 (đơn vị/giây), `ashA` [2.5, 5] (độ đậm hạt tro = `weather.a` × hệ số → 0.3–0.6), `clearR` 120 (bán kính mờ quanh tâm); vẽ sương bật `imageSmoothingEnabled` (ảnh 128 px phóng ~1000 px); (4) (c) đo trung bình vùng 40×40 px ở tâm, cả 4 đợt, so với `drawWeather` thay bằng hàm rỗng. Lưu ý: với `a` 0.10 của kế hoạch, sương rất nhạt — bỏ hẳn vùng mờ quanh tâm thì tâm cũng chỉ đổi 2.6% (nên (c) khó trượt với số hiện tại); nếu người dùng muốn sương rõ hơn thì tăng `weather.a`, (c) sẽ giữ tâm màn. `perf()` cùng phiên, xen kẽ thay `drawWeather` bằng hàm rỗng / bật: đợt 1 1.3/1.2/1.3 → 1.2/1.4/1.3 ms (trung vị 1.3 → 1.3), đợt 4 1.1/1.3/1.1 → 1.2/1.2/1.3 (1.1 → 1.2); chỉ đo thời gian CPU của `render(1)`, phần tô GPU của 10 mảng ~1000 px không đo được ở đây. Ảnh: `tools/shots/v8-after-wave1..4.png` (cùng cảnh Task 0: 60 golem 100–280 đơn vị, `tick(0.2)`, bật đèn; lúc chụp G3 chưa làm nên chỉ khác ở sương/tro + vết loang G4).
 
 ---
 

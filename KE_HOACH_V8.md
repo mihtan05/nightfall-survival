@@ -248,11 +248,13 @@ const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d
 - `p.sq = { sx, sy, t, max }` — đặt bởi `squashPlayer(kind)` (`game.js`); `draw()` khi `kind === 'player' && p.sq.t > 0 && !calm()` nội suy từ `[sx, sy]` về `[1, 1]` theo `t/max` (ease-out), neo chân như nhánh `e.pop` hiện có.
 - Lướt sang trái/phải thì giãn ngang; lướt lên/xuống thì đổi `sx`↔`sy` (giãn dọc).
 
-- [ ] **Bước 1: Viết `V8-6` (trượt trước):** gọi `tryDash()` → khung kế tiếp bề rộng điểm ảnh không trong suốt của nhân vật (đo bằng `getImageData` vùng 48×48 quanh tâm) lớn hơn lúc đứng ≥ 8%; `SETTINGS.noFlash = true` → bằng lúc đứng (±1 px); sau 0,5 giây về như cũ.
-- [ ] **Bước 2:** `squashPlayer` trong `game.js`, gọi ở 3 chỗ; lướt hết → `land`.
-- [ ] **Bước 3:** Nhánh người chơi trong `draw()`; bóng mờ khi lướt (`p.trail`) dùng cùng hệ số giãn.
-- [ ] **Bước 4:** `runChecks()` → 79/79. `perf()` không đổi.
-- [ ] **Bước 5:** VER `v8f`, commit `V8 G6: nhân vật bóp-giãn khi lướt, bị đánh, lên cấp`.
+- [x] **Bước 1: Viết `V8-6` (trượt trước):** gọi `tryDash()` → khung kế tiếp bề rộng điểm ảnh không trong suốt của nhân vật (đo bằng `getImageData` vùng 48×48 quanh tâm) lớn hơn lúc đứng ≥ 8%; `SETTINGS.noFlash = true` → bằng lúc đứng (±1 px); sau 0,5 giây về như cũ.
+- [x] **Bước 2:** `squashPlayer` trong `game.js`, gọi ở 3 chỗ; lướt hết → `land`.
+- [x] **Bước 3:** Nhánh người chơi trong `draw()`; bóng mờ khi lướt (`p.trail`) dùng cùng hệ số giãn.
+- [x] **Bước 4:** `runChecks()` → 79/79. `perf()` không đổi.
+- [x] **Bước 5:** VER `v8f`, commit `V8 G6: nhân vật bóp-giãn khi lướt, bị đánh, lên cấp`.
+
+**Kết quả G6** (22/11/2026, pane 1280×720 hiện; G3 vẫn bỏ qua nên đếm 77 → 78; VER `v8g` vì `v8f` đã dùng cho "sương rõ hơn"): `runChecks()` 78/78. `V8-6` trước → sau: `ngang ×1.00, dọc ×1.00, bị đánh +0/+0 px, lên cấp +0/+0 px` (trượt) → `ngang ×1.15, dọc ×1.15, bị đánh -5/+6 px, lên cấp -3/+7 px, sau 0,5 s +0/+0 px, giảm loé +0/+0 px`. Lệch kế hoạch: (1) phép đo vẽ RIÊNG nhân vật lên canvas trống (nền không trong suốt nên không đo được "điểm ảnh không trong suốt" trên cảnh thật) và so với chính nó bỏ `sq` (cùng khung hoạt ảnh — lướt đổi sang hoạt ảnh chạy, khác bề rộng khung đứng); vùng đo 96×96 thay 48×48 (sprite cao 40 px ở ZOOM 2, giãn dọc 46 px — sát mép 48, tâm vùng không trùng tâm sprite); (2) thêm kiểm lướt dọc (giãn dọc), bị đánh / lên cấp (hẹp lại + cao lên); máy bật reduced-motion thì chỉ kiểm "không đổi"; (3) `p.sq` giảm trong `update()` cạnh `hurtT` (đứng yên khi chọn thẻ, như `hurtT`); `land` đặt đúng khung `dashT` về ≤ 0; nội suy `k = (t/max)²` (về nhanh lúc đầu = ease-out); bị đánh khi có khiên (đòn bị chặn) không bóp. Neo chân: đáy sprite giữ nguyên hàng (69 = 69 khi giãn dọc). Bóng mờ khi lướt là `{ ...p }` nên tự mang cùng `sq`. `perf()` cùng phiên: trước 1.4/1.2/1.4 → sau 1.4/1.3/1.3 ms (trung vị 1.4 → 1.3, không đổi).
 
 ---
 

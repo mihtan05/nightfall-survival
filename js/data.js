@@ -402,6 +402,8 @@ CFG.remains = { cap: 50, chance: 0.4, life: 7, r: [9, 14], a: 0.55, aClear: 0.3,
 // mờ dần trong bán kính `clearR` quanh tâm màn (không che nhân vật); tro: `ash` hạt rơi `ashFall` đơn vị/giây, độ đậm = weather.a × ashA.
 // Màu thời tiết lệch sắc độ ≥ 35° so với CFG.light.zoneCol (luật màu V7). Chỉ vẽ khi bật ánh sáng đêm, tắt khi Dễ nhìn.
 CFG.weather = { blobs: 10, size: [220, 360], drift: 6, parallax: 0.35, ash: 40, ashFall: 14, ashA: [2.5, 5], clearR: 120 };
+// V8 G6: nhân vật bóp-giãn — mỗi loại [sx, sy, giây], về [1, 1] kiểu ease-out; lướt dọc thì đổi sx↔sy; `land` chạy khi lướt xong. Tắt khi calm().
+CFG.squash = { dash: [1.18, 0.86, 0.14], hurt: [0.84, 1.12, 0.12], lvl: [0.9, 1.14, 0.2], land: [1.1, 0.92, 0.08] };
 CFG.upgradeCue = { ring: 70, ringLife: 0.45 }; // lúc chọn thẻ vũ khí: vòng màu vũ khí quanh người (bán kính, giây)
 /* Bảng hình dáng: mỗi vũ khí một màu chủ đạo (col, dùng cho vòng lên cấp + loé khi bắn) và 4 bậc. Trường chung:
      col/col2 = màu chính/phụ · trail = độ dài vệt (đơn vị thế giới) · grow = phần cộng thêm cho MỖI cấp trong cùng bậc

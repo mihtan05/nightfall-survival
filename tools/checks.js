@@ -785,6 +785,28 @@ window.runChecks = async function () {
       has && drawn.every(n => n > 0) && clearN === 0 && endless === 'ok' && maxCh <= 0.08 && hueMin >= 35,
       `vẽ ${drawn.join('/')}, Dễ nhìn ${clearN}, vô tận ${endless}, tâm đổi ${(maxCh * 100).toFixed(1)}%, sắc độ ≥ ${hueMin.toFixed(0)}°`);
   }
+  { // ---- V8-6 (G6): nhân vật bóp-giãn ----
+    // Vẽ riêng nhân vật lên canvas trống, đo khung điểm ảnh không trong suốt (vùng 96×96: sprite cao 40 px ở ZOOM 2 và lệch lên trên tâm, giãn dọc 1.18 vẫn lọt).
+    // So với chính nhân vật đó bỏ `sq` (cùng khung hoạt ảnh) → chỉ còn phần bóp-giãn.
+    const box = o => { const S = 96; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.setTransform(ZOOM, 0, 0, ZOOM, (cv.width >> 1) - o.x * ZOOM, (cv.height >> 1) - o.y * ZOOM); draw(ctx, o, 'player'); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const d = ctx.getImageData((cv.width >> 1) - S / 2, (cv.height >> 1) - S / 2, S, S).data; let x0 = S, x1 = -1, y0 = S, y1 = -1;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (d[(y * S + x) * 4 + 3] > 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      return [x1 - x0 + 1, y1 - y0 + 1]; };
+    const vs = () => { const a = box(P()), b = box({ ...P(), sq: null }); return { dw: a[0] - b[0], dh: a[1] - b[1], w: a[0] / b[0], h: a[1] / b[1] }; };
+    const dash = (dx, dy) => { const p = P(); p.dashCd = p.dashT = 0; p.dirX = dx; p.dirY = dy; tryDash(); v.tick(1 / 60); return vs(); };
+    const same = r => Math.abs(r.dw) <= 1 && Math.abs(r.dh) <= 1, nfWas = SETTINGS.noFlash, live = !REDUCED_MOTION;
+    SETTINGS.noFlash = false; fresh();
+    const hor = dash(1, 0), ver = dash(0, 1); v.tick(0.5); const back = vs();
+    P().iframe = 0; hurtPlayer(1); const hurt = vs();
+    G.xpNeed = 1; addXp(1); const lvl = vs(); G.pending = 0; G.state = 'play';
+    SETTINGS.noFlash = true; const quiet = dash(1, 0); SETTINGS.noFlash = nfWas;
+    const moved = live ? hor.w >= 1.08 && ver.h >= 1.08 && hurt.dw < 0 && hurt.dh > 0 && lvl.dw < 0 && lvl.dh > 0 : same(hor) && same(ver) && same(hurt) && same(lvl);
+    const f = r => `${r.dw >= 0 ? '+' : ''}${r.dw}/${r.dh >= 0 ? '+' : ''}${r.dh} px`;
+    ok('V8-6', '6.1 Nhân vật: lướt ngang giãn ngang ≥ 8%, lướt dọc giãn dọc ≥ 8%, bị đánh / lên cấp bóp lại; sau 0,5 giây như cũ; giảm loé thì không đổi (±1 px)',
+      moved && same(back) && same(quiet),
+      `ngang ×${hor.w.toFixed(2)}, dọc ×${ver.h.toFixed(2)}, bị đánh ${f(hurt)}, lên cấp ${f(lvl)}, sau 0,5 s ${f(back)}, giảm loé ${f(quiet)}${live ? '' : ' (máy bật reduced-motion: chỉ kiểm không đổi)'}`);
+  }
   SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.applyVolumes();
   G.enemies.clear(); G.boss = null; G.zones.length = 0;
   CFG.hints.on = true;

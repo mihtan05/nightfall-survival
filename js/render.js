@@ -360,11 +360,16 @@ function draw(c, e, kind) {
     const x = snapPx(e.x), flip = rot === null && e.face < 0, inv = 1 / ZOOM;
     let y = snapPx(e.y);
     const sh = sheetFor(a, outlineRole(e, kind), e.sc || 1), q = sh.cells.get(fr); // hệ số riêng (quái tinh anh) đã nằm sẵn trong tấm sprite
-    // Trúng đòn: bẹp ngang một chút theo e.pop (không áp cho người chơi hoặc khi calm())
+    // Trúng đòn: bẹp ngang một chút theo e.pop (không áp cho người chơi — có nhánh riêng bên dưới — hoặc khi calm())
     let sx = 1, sy = 1;
     if (kind !== 'player' && e.pop > 0 && !calm()) {
       const C = CFG.juice, k = Math.min(1, e.pop / C.pop);
       sx = 1 + C.sx * k; sy = 1 - C.sy * k;
+    }
+    // Nhân vật bóp-giãn (V8 G6): từ [sq.sx, sq.sy] về [1, 1] kiểu ease-out; bóng mờ khi lướt là bản sao của p nên giãn y hệt
+    if (kind === 'player' && e.sq && e.sq.t > 0 && !calm()) {
+      const u = e.sq.t / e.sq.max, k = u * u;
+      sx = 1 + (e.sq.sx - 1) * k; sy = 1 + (e.sq.sy - 1) * k;
     }
     const ga = c.globalAlpha; let al = ga;
     if (e.anim !== undefined && ENEMIES[kind] && !e.boss && !e.prop && !e.frozen && !(e.stunT > 0)) {

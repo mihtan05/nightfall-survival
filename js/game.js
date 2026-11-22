@@ -89,7 +89,7 @@ function newPlayer(start = 'bolt') {
     speed: CFG.player.speed * (1 + 0.03 * metaLv('spd')), magnet: CFG.player.magnet * (1 + 0.1 * metaLv('mag')),
     armor: 0, regen: 0, mDmg: 1 + 0.04 * metaLv('dmg'), mCd: 1, mArea: 1, xpMul: 1 + 0.05 * metaLv('xp'),
     iframe: 0, hurtT: 0, face: 1, dirX: 1, dirY: 0, moving: false, anim: 0,
-    dashT: 0, dashCd: 0, dashX: 1, dashY: 0, trail: [], trailN: 0,
+    dashT: 0, dashCd: 0, dashX: 1, dashY: 0, trail: [], trailN: 0, sq: null,
     buffs: { shield: 0, speed: 0, rage: 0, xp2: 0 }, shieldHits: 0,   // hiệu ứng tạm thời từ vật phẩm (giây còn lại)
     levels: { [start]: 1 },
     weapons: { [start]: newWeapon(start) },
@@ -483,7 +483,7 @@ function hurtPlayer(dmg, src = '?') {
   const S = G.stats; S.noHitMax = Math.max(S.noHitMax, G.t - S.lastHurt); S.lastHurt = G.t; // chuỗi không trúng đòn (nhiệm vụ) // nguồn đòn cuối: màn kết thúc ghi "gục vì …"
   p.iframe = CFG.player.iframe; p.hurtT = 0.3; addShake(6);
   hitStop(CFG.hurt.stop); G.flashT = 0.12; G.flashColor = '#ff3b5c';
-  pushAround(p.x, p.y, CFG.hurt.pushR, CFG.hurt.push, '#ffffff');
+  pushAround(p.x, p.y, CFG.hurt.pushR, CFG.hurt.push, '#ffffff'); squashPlayer('hurt');
   const nw = p.weapons.nova;
   if (nw && nw.evo && G.t >= (G.novaFreeAt || 0)) { G.novaFreeAt = G.t + CFG.evo.novaOnHurtCd; fireNova(nw, p, 0); }
   SFX.play('hurt');
@@ -499,8 +499,13 @@ function tryDash() {
   p.dashX = dx / l; p.dashY = dy / l; if (dx) p.face = dx > 0 ? 1 : -1;
   G.stats.dashes++;
   p.dashT = D.dur; p.dashCd = D.cd; p.iframe = Math.max(p.iframe, D.iframe); p.trail.length = 0; p.trailN = 0;
-  burst(p.x, p.y + 8, '#7fd4ff', 8, 100, 2.5, 0.3); SFX.play('dash');
+  burst(p.x, p.y + 8, '#7fd4ff', 8, 100, 2.5, 0.3); SFX.play('dash'); squashPlayer('dash');
   return true;
+}
+// Bóp-giãn nhân vật (V8 G6): đặt p.sq, draw() nội suy về [1, 1]; lướt dọc thì giãn dọc
+function squashPlayer(kind) {
+  const p = G.player, [sx, sy, t] = CFG.squash[kind], vert = kind === 'dash' && Math.abs(p.dashY) > Math.abs(p.dashX);
+  p.sq = { sx: vert ? sy : sx, sy: vert ? sx : sy, t, max: t };
 }
 // Đẩy lùi quái thường quanh (x, y) và vẽ vòng sóng (bị đánh, lên cấp). Mảng riêng vì có thể gọi giữa lúc `tmp` đang dùng.
 const pushTmp = [];
@@ -901,7 +906,7 @@ function addXp(v) {
     if (p) {
       if (!playFx('levelUp', p.x, p.y, 0, p, 12)) addFx('lvl', p.x, p.y, 0.6);
       burst(p.x, p.y, '#ffd166', 18, 180, 3, 0.6);
-      pushAround(p.x, p.y, CFG.levelPush.r, CFG.levelPush.push, '#ffd166');
+      pushAround(p.x, p.y, CFG.levelPush.r, CFG.levelPush.push, '#ffd166'); squashPlayer('lvl');
     }
   }
 }
@@ -952,6 +957,7 @@ function update(dt) {
     const m = Math.min(dt, p.dashT) * CFG.dash.speed; p.dashT -= dt;
     p.x += p.dashX * m; p.y += p.dashY * m;
     if (++p.trailN % 2 === 0) { p.trail.unshift({ x: p.x, y: p.y, t: G.t }); if (p.trail.length > 3) p.trail.pop(); }
+    if (p.dashT <= 0) squashPlayer('land');
   } else { p.x += v.x * spd * dt; p.y += v.y * spd * dt; }
   p.moving = !!(v.x || v.y) || p.dashT > 0;
   if (p.moving) {
@@ -959,7 +965,7 @@ function update(dt) {
     if (p.buffs.speed > 0 && Math.random() < 0.35) burst(p.x - p.dirX * 8, p.y + 10, '#5cff9d', 1, 30, 2.5, 0.35);
   }
   if (v.x) p.face = v.x > 0 ? 1 : -1;
-  p.iframe -= dt; p.hurtT -= dt; G.shake = Math.max(0, G.shake - 30 * dt);
+  p.iframe -= dt; p.hurtT -= dt; if (p.sq) p.sq.t -= dt; G.shake = Math.max(0, G.shake - 30 * dt);
   if (p.regen) p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
   p.hpLag = p.hpLag > p.hp ? p.hpLag + (p.hp - p.hpLag) * Math.min(1, dt * CFG.barLag) : p.hp; // vệt trễ của thanh máu
 

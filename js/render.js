@@ -588,7 +588,9 @@ function fogImg(col) {
   }
   return c;
 }
-const FOG = Array.from({ length: CFG.weather.blobs }, () => ({ x: Math.random(), y: Math.random(), s: Math.random(), vx: rand(0.5, 1), vy: rand(-0.4, 0.4) }));
+// Vị trí mảng sương cố định theo hash (không Math.random): cảnh và số đo V7-1/V8-1/V8-5 lặp lại được giữa các lần tải
+const fogU = (i, k) => (hash(i, k) % 1000) / 1000;
+const FOG = Array.from({ length: CFG.weather.blobs }, (_, i) => ({ x: fogU(i, 1), y: fogU(i, 2), s: fogU(i, 3), vx: 0.5 + 0.5 * fogU(i, 4), vy: 0.8 * fogU(i, 5) - 0.4 }));
 const ASH = Array.from({ length: CFG.weather.ash }, () => ({ x: Math.random(), y: Math.random(), v: rand(0.6, 1), s: Math.random() < 0.5 ? 1 : 2, a: rand(CFG.weather.ashA[0], CFG.weather.ashA[1]) }));
 function drawWeather(camX, camY, t, wi) {
   const wd = WAVE_DEFS[wi].weather, C = CFG.weather, k = W / VW;

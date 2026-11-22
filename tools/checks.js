@@ -598,7 +598,8 @@ window.runChecks = async function () {
   }
   { // ---- V7-1 (A1): lớp ánh sáng đêm ----
     const lum = (x, y) => { const d = ctx.getImageData(x, y, 8, 8).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; return s / (d.length / 4); };
-    const shot = on => { SETTINGS.light = on; light.failed = false; render(1); return [lum(cv.width / 2 - 60, cv.height / 2 + 40), lum(12, 12)]; };
+    // chỉ đo lightmap: tắt lớp thời tiết G5 (mảng sương trùng góc 8×8 làm góc sáng lên — phần đó do V8-5 kiểm)
+    const shot = on => { const dw = window.drawWeather; window.drawWeather = () => {}; SETTINGS.light = on; light.failed = false; render(1); window.drawWeather = dw; return [lum(cv.width / 2 - 60, cv.height / 2 + 40), lum(12, 12)]; };
     fresh(); G.enemies.clear(); G.gems.clear(); G.shake = 0;
     const [cOff, kOff] = shot(false), [cOn, kOn] = shot(true);
     const sized = light.cv && light.cv.width === Math.ceil(VW) && light.cv.height === Math.ceil(VH);

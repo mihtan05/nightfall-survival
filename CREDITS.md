@@ -6,7 +6,7 @@
 - Trang gốc: https://0x72.itch.io/dungeontileset-ii
 - Giấy phép: **CC0** ("You can use this tileset for whatever you like (CC-0)" — trang gốc). Không bắt buộc ghi nguồn, ghi để cảm ơn tác giả.
 - File gốc: `vendor/0x72/0x72_DungeonTilesetII_v1.7.zip` (416 kB, tải ngày 2026-11-14; tải lại 2026-11-15 cho V5 Phase 10, giải nén ở `vendor/0x72/x/`)
-- Game dùng: `assets/atlas.png`, ghép bằng `tools/build_atlas.py` từ 134 khung của gói (V5 Phase 10 thêm 47 khung). Atlas không có viền; viền sáng quanh nhân vật/quái được game vẽ lúc chạy.
+- Game dùng: `assets/atlas.png`, ghép bằng `tools/build_atlas.py` từ 134 khung của gói (V5 Phase 10 thêm 47 khung) + 24 khung của gói Niji bên dưới (V8 G3) = 158 khung. Atlas không có viền; viền sáng quanh nhân vật/quái được game vẽ lúc chạy.
 
 | Trong game | Sprite gốc |
 |---|---|
@@ -29,6 +29,18 @@
 | Nhân vật Hiệp Sĩ / Tiên Rừng / Thằn Lằn Chiến (V5 Phase 10) | `knight_m_*` / `elf_f_*` / `lizard_m_*` |
 | Bình máu, khiên, thuốc gió, thuốc cuồng nộ, bom | `flask_big_red/blue/green/yellow`, `bomb_f0–2` |
 | Icon giao diện | `weapon_arrow`, `weapon_red_gem_sword`, `weapon_knife`, `weapon_big_hammer`, `weapon_golden_sword`, `flask_green`, `ui_heart_full`, `skull`… (các icon còn lại vẽ bằng code trong `js/icons.js`) |
+
+**DungeonTileset II Extended v1.1** — tác giả Niji (nijikokun), mở rộng gói của 0x72
+- Trang gốc: https://nijikokun.itch.io/dungeontileset-ii-extended
+- Giấy phép: **CC0** (như gói gốc của 0x72). Không bắt buộc ghi nguồn, ghi để cảm ơn tác giả.
+- File gốc: `dungeontileset-extended.png` (1024×1024, không có danh sách khung), giải nén ở `vendor/niji/dungeontiles-extended v1.1/` (người dùng duyệt ở V8 G3).
+- Game dùng: 24 khung (V8 G3), toạ độ đo bằng Pillow ghi ở `tools/niji_tiles.txt`, ghép thêm vào cuối `assets/atlas.png` bằng `tools/build_atlas.py` (khung 0x72 cũ giữ nguyên vị trí và điểm ảnh).
+
+| Trong game | Khung (đặt tên trong `tools/niji_tiles.txt`) |
+|---|---|
+| Đèn thế giới đợt 1: nến trên trụ đá | `niji_candle_f0–7` |
+| Đèn thế giới đợt 2: đuốc (game nhuộm tím) | `niji_torch_f0–7` |
+| Đèn thế giới đợt 3–4: ngọn lửa trên khe đất / đống than (đế vẽ bằng code) | `niji_flame_f0–7` |
 
 ## Font
 

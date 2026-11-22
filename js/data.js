@@ -50,6 +50,10 @@ const CFG = {
   dmgNum: { busy: 40, max: 60, keep: 0.6, ema: 0.05, // bớt số sát thương khi đông: từ busy số trở lên bỏ đòn < keep × trung bình trượt (ema), tối đa max số cùng lúc
     merge: { r: 28, busy: 12 } }, // từ busy số trở lên: số mới bằng một số còn sống trong bán kính r thì cộng vào số đó (hiện "33×3")
   die: { flashMax: 10, dark: 0.55 }, // hạ hàng loạt: mỗi khung tối đa flashMax xác nháy trắng (mới nhất trước, boss luôn nháy), xác còn lại mờ đi dark
+  // Đèn thế giới (V8 G3): mỗi ô lưới cell×cell đơn vị có đúng 1 nguồn sáng ở giữa ô ± jit (theo hash, cố định) → khung 640×360 luôn thấy 1–6 đèn;
+  // bán kính đèn r × WAVE_DEFS[i].props.k; độ sáng 1 − flick·(1 − sóng), sóng = trung bình 2 sin lệch pha (flickHz), giảm loé thì đứng yên ở 1 − flick;
+  // menuA: ở menu không có lightmap, đèn là quầng cộng sáng nhẹ với độ đậm này
+  props: { cell: 400, jit: 60, flick: 0.12, flickHz: 7, r: 95, menuA: 0.3 },
 };
 
 // Cài đặt người chơi (lưu localStorage)
@@ -105,7 +109,7 @@ const ASSETS = {};
    golem → Quỷ khổng lồ (ogre), boss → Chúa Tể Bóng Đêm (big_demon). Mã nội bộ giữ nguyên.
    anims: tên: [tiền tố khung, số khung (0 = một khung không đánh số), fps]
    anchor tính theo px trong khung (đã gồm lề trong suốt 1px), đặt trùng tâm va chạm của vật. */
-const ATLAS_SRC = typeof ATLAS !== 'undefined' ? ATLAS.src + '?v=g7' : null;
+const ATLAS_SRC = typeof ATLAS !== 'undefined' ? ATLAS.src + '?v=g8' : null;
 const SPRITES = {
   player:   { anchor: [9, 19],    scale: 1,   anims: { idle: ['wizzard_m_idle_anim_f', 4, 6], run: ['wizzard_m_run_anim_f', 4, 10], hit: ['wizzard_m_hit_anim_f', 1, 1] } },
   bat:      { anchor: [9, 11],    scale: 1.2, anims: { idle: ['imp_idle_anim_f', 4, 8], run: ['imp_run_anim_f', 4, 12] } },
@@ -136,6 +140,10 @@ const SPRITES = {
   orb:      { anchor: [6, 11.5],  scale: 1,   rotate: Math.PI / 2, anims: { idle: ['weapon_red_gem_sword', 0, 1] } },
   chest:    { anchor: [9, 10],    scale: 1.3, anims: { idle: ['chest_full_open_anim_f', 1, 1] } },
   heart:    { anchor: [7.5, 7],   scale: 1.1, anims: { idle: ['ui_heart_full', 0, 1] } },
+  // đèn thế giới (V8 G3, gói Niji DungeonTileset II Extended CC0): neo ở chân; đuốc đợt 2 nhuộm tím (lửa tử linh)
+  propCandle: { anchor: [8, 21], scale: 1, anims: { idle: ['niji_candle_f', 8, 10] } },
+  propTorch:  { anchor: [8, 19], scale: 1, tint: ['#8a50ff', 0.55], anims: { idle: ['niji_torch_f', 8, 10] } },
+  propFlame:  { anchor: [8, 13], scale: 1, anims: { idle: ['niji_flame_f', 8, 10] } },
 };
 if (ATLAS_SRC) {
   for (const [kind, s] of Object.entries(SPRITES)) {
@@ -219,22 +227,28 @@ const ITEMS = {
 
 /* 4 đợt quái. Mỗi đợt: đánh `dur` giây (tốc độ sinh tăng dần rate[0] → rate[1]), rồi boss xuất hiện
    (quái thường vẫn ra nhưng thưa hơn). Hạ boss → nghỉ CFG.restTime giây → đợt sau. Hạ boss đợt cuối là thắng.
-   mix: thành phần quái theo giây trong đợt; events: sự kiện theo giây trong đợt. */
+   mix: thành phần quái theo giây trong đợt; events: sự kiện theo giây trong đợt.
+   props (V8 G3): đèn thế giới — kind: sprite trong SPRITES (thiếu ảnh thì hình code SHAPES[kind]), base: đế vẽ code PROP_BASE (render.js),
+   col: màu đèn (lệch ≥ 35° sắc độ so với CFG.light.zoneCol), k: hệ số bán kính đèn, sc: cỡ sprite. Đợt vô tận dùng của đợt 4. */
 const WAVE_DEFS = [
   { name: 'Nghĩa địa thức giấc', dur: 110, rate: [1.1, 3.0], boss: 'bossZombie', ambient: '#8088b8',
     ground: { tint: 'rgba(10,8,18,0.50)', decor: ['tomb', 'grass', 'grass'], light: '5,3,12', mote: '#bcd6ff' }, weather: { kind: 'fog', col: '#9fb0dc', a: 0.22 },
+    props: { kind: 'propCandle', col: '#ffd880', k: 0.8 },
     mix: [{ t: 0, mix: { bat: 1 } }, { t: 20, mix: { bat: 3, slime: 1 } }, { t: 55, mix: { bat: 2, slime: 2, splitter: 0.5 } }, { t: 85, mix: { bat: 2, slime: 2, skeleton: 1, splitter: 0.5 } }], elites: [75],
     events: [{ t: 30, kind: 'circle', type: 'bat', n: 26, msg: 'Bị bao vây!' }, { t: 65, kind: 'swarm', type: 'bat', n: 25, msg: 'Bầy tiểu quỷ kéo đến!' }] },
   { name: 'Tiếng gọi tử linh', dur: 140, rate: [2.0, 3.6], boss: 'bossNecro', ambient: '#6f78a8',
     ground: { tint: 'rgba(38,10,48,0.50)', decor: ['bones', 'rune', 'bones'], light: '12,3,22', mote: '#c9a6ff' }, weather: { kind: 'fog', col: '#a58ad8', a: 0.20 },
+    props: { kind: 'propTorch', col: '#b583ff', k: 1.0 },
     mix: [{ t: 0, mix: { bat: 3, slime: 2, skeleton: 1 } }, { t: 30, mix: { bat: 2, slime: 2, skeleton: 2, ghost: 1, bomber: 1 } }, { t: 110, mix: { bat: 2, slime: 2, skeleton: 2, ghost: 1, golem: 1, bomber: 1, charger: 1 } }], elites: [60, 110],
     events: [{ t: 50, kind: 'circle', type: 'slime', n: 36, msg: 'Bị bao vây!' }, { t: 110, kind: 'swarm', type: 'bat', n: 45, msg: 'Bầy tiểu quỷ kéo đến!' }] },
   { name: 'Đất rung chuyển', dur: 140, rate: [4.2, 7.0], boss: 'bossOgre', ambient: '#6a5f96',
     ground: { tint: 'rgba(48,26,8,0.50)', decor: ['crack', 'rock', 'crack'], light: '13,7,3', mote: '#b89a72' }, weather: { kind: 'dust', col: '#b4a888', a: 0.08 },
+    props: { kind: 'propFlame', base: 'vent', col: '#ffc850', k: 1.1 },
     mix: [{ t: 0, mix: { bat: 2, skeleton: 3, ghost: 2, golem: 1, bomber: 2, charger: 2, splitter: 1 } }, { t: 70, mix: { bat: 3, slime: 2, skeleton: 3, ghost: 2, golem: 1, bomber: 2, charger: 2, splitter: 1 } }], elites: [60, 110],
     events: [{ t: 45, kind: 'circle', type: 'skeleton', n: 40, msg: 'Bị bao vây!' }, { t: 100, kind: 'swarm', type: 'skeleton', n: 50, msg: 'Đội quân xương trỗi dậy!' }] },
   { name: 'Màn đêm cuối cùng', dur: 140, rate: [7.0, 11.5], boss: 'boss', ambient: '#7a5560',
     ground: { tint: 'rgba(60,6,14,0.55)', decor: ['blood', 'ember', 'ember'], light: '18,2,5', mote: '#ff9a4a' }, weather: { kind: 'ash', col: '#ffdc8c', a: 0.16 },
+    props: { kind: 'propFlame', base: 'pyre', col: '#ffd060', k: 1.2, sc: 1.4 },
     mix: [{ t: 0, mix: { bat: 3, skeleton: 4, ghost: 2, golem: 2, bomber: 2, charger: 3, splitter: 1 } }, { t: 70, mix: { bat: 4, skeleton: 4, ghost: 3, golem: 2, bomber: 2, charger: 3, splitter: 1 } }], elites: [60, 110],
     events: [{ t: 40, kind: 'circle', type: 'golem', n: 24, msg: 'Quỷ khổng lồ bao vây!' }, { t: 95, kind: 'swarm', type: 'bat', n: 80, msg: 'Màn đêm cuối cùng!' }] },
 ];

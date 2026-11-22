@@ -740,6 +740,39 @@ window.runChecks = async function () {
     ok('V8-2', '2.1 Hạ 60 quái cùng lúc: điểm ảnh trắng ≤ 4% màn; 60 đòn 33 sát nhau thành ≤ 15 số',
       ws <= 0.04 && nums <= 15, `trắng ${(ws * 100).toFixed(1)}%, số ${nums}`);
   }
+  { // ---- V8-3 (G3): nguồn sáng cố định theo đợt ----
+    const hue = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255), M = Math.max(r, g, b), m = Math.min(r, g, b), d = M - m;
+      if (!d) return 0; const x = M === r ? ((g - b) / d) % 6 : M === g ? (b - r) / d + 2 : (r - g) / d + 4; return (x * 60 + 360) % 360; };
+    const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d, 360 - d); };
+    const has = typeof propsOnCam === 'function', lightWas = SETTINGS.light, nfWas = SETTINGS.noFlash;
+    const clean = () => { G.enemies.clear(); G.gems.clear(); G.bullets.clear(); G.fx.clear(); G.zones.length = 0; G.shake = 0; };
+    let seen = [], same = false, nMax = 0, hueMin = 0, flick = -1, still = -1, endless = 'không có propsOnCam';
+    if (has) {
+      SETTINGS.light = true; light.failed = false; SETTINGS.noFlash = false;
+      // (a) đi 2000 đơn vị theo trục x ở mỗi đợt: số đèn thế giới trong khung (trừ đèn người chơi) luôn 1..6; (d) tổng đèn ≤ CFG.light.max
+      for (let i = 0; i < 4; i++) { fresh(); v.skipTo(i); clean(); for (let d = 0; d <= 2000; d += 100) { P().x = d; P().y = 50; render(1); seen.push(light.n - 1); nMax = Math.max(nMax, light.n); } }
+      // (b) cố định theo toạ độ
+      const a1 = JSON.stringify(propsOnCam(123, 456, [], 100)), a2 = JSON.stringify(propsOnCam(123, 456, [], 100));
+      same = a1 === a2 && a1 !== '[]';
+      // (c) luật màu V7
+      hueMin = Math.min(...WAVE_DEFS.map(w => w.props ? hdist(w.props.col, CFG.light.zoneCol) : 0));
+      // (e) lập loè: điểm ảnh lightmap cạnh một đèn ở 150 đơn vị bên phải người chơi (ngoài đèn nhân vật), 2 thời điểm; giảm loé thì bằng nhau
+      fresh(); clean();
+      const f = propsOnCam(-500, -500, [], 0)[0];
+      if (f) {
+        P().x = f.x - 150; P().y = f.y;
+        const camX = snapPx(P().x - VW / 2), camY = snapPx(P().y - VH / 2), off = CFG.props.r * WAVE_DEFS[0].props.k * 0.6;   // lệch khỏi tâm đèn để không bão hoà 255
+        const at = t => { G.t = t; render(1); const d = light.cv.getContext('2d').getImageData(Math.round(f.x + off - camX), Math.round(f.y - camY), 1, 1).data; return d[0] + d[1] + d[2]; };
+        flick = Math.abs(at(0.3) - at(1.1));
+        SETTINGS.noFlash = true; still = Math.abs(at(0.3) - at(1.1));
+      }
+      fresh(); v.skipTo(6); clean(); try { render(1); endless = light.n > 1 ? 'ok' : 'không có đèn'; } catch (e) { endless = e.message; }
+    }
+    SETTINGS.light = lightWas; SETTINGS.noFlash = nfWas;
+    ok('V8-3', '3.1 Đèn thế giới: đi 2000 đơn vị ở mỗi đợt luôn thấy 1–6 đèn; cố định theo toạ độ; màu lệch ≥ 35° so với đỏ nguy hiểm; không vượt CFG.light.max; lập loè, giảm loé thì đứng yên; vô tận có đèn',
+      has && Math.min(...seen) >= 1 && Math.max(...seen) <= 6 && same && hueMin >= 35 && nMax <= CFG.light.max && flick > 0 && still === 0 && endless === 'ok',
+      `đèn ${has ? Math.min(...seen) + '–' + Math.max(...seen) : '-'}, cố định ${same}, sắc độ ≥ ${hueMin.toFixed(1)}°, tổng ≤ ${nMax}/${CFG.light.max}, lập loè ${flick}, giảm loé ${still}, vô tận ${endless}`);
+  }
   { // ---- V8-4 (G4): vết loang khi quái chết — giới hạn riêng, tự tan ----
     const R = CFG.remains || {}, chanceWas = R.chance, stains = () => G.decals.filter(d => d.kind === 'stain').length;
     fresh(); v.skipTo(2); G.enemies.clear(); G.decals.length = 0; R.chance = 1;   // chắc chắn có vết để phép thử không đạt nhờ may

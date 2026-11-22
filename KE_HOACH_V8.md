@@ -176,7 +176,7 @@ async function perf(n = 120) {
 - `propsOnCam(camX, camY, out): out` — trả danh sách `{x, y, h}` các ô trong tầm nhìn + lề `r`.
 - `PROP_DRAW[kind](c, x, y, t)` — hình vẽ bằng code nhỏ (≤ 16×20 đơn vị), như `DECOR`, có ngọn lửa 2–3 điểm ảnh đổi khung theo `t`.
 
-- [ ] **Bước 1: Viết `V8-3` (trượt trước):** (a) đi 2000 đơn vị theo một hướng, đếm số nguồn sáng thấy được ở mỗi 100 đơn vị: luôn ≥ 1 và ≤ 6; (b) cùng toạ độ gọi `propsOnCam` 2 lần ra cùng kết quả (cố định); (c) mọi `WAVE_DEFS[i].props.col` lệch sắc độ ≥ 35° so với `CFG.light.zoneCol`; (d) `light.n` khung có đèn thế giới vẫn ≤ `CFG.light.max`; (e) `calm()` đúng thì độ sáng đèn ở 2 thời điểm khác nhau bằng nhau (không lập loè).
+- [x] **Bước 1: Viết `V8-3` (trượt trước):** (a) đi 2000 đơn vị theo một hướng, đếm số nguồn sáng thấy được ở mỗi 100 đơn vị: luôn ≥ 1 và ≤ 6; (b) cùng toạ độ gọi `propsOnCam` 2 lần ra cùng kết quả (cố định); (c) mọi `WAVE_DEFS[i].props.col` lệch sắc độ ≥ 35° so với `CFG.light.zoneCol`; (d) `light.n` khung có đèn thế giới vẫn ≤ `CFG.light.max`; (e) `calm()` đúng thì độ sáng đèn ở 2 thời điểm khác nhau bằng nhau (không lập loè).
 
 ```js
 const hue = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255), M = Math.max(r, g, b), m = Math.min(r, g, b), d = M - m;
@@ -184,13 +184,15 @@ const hue = h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 
 const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d, 360 - d); };
 ```
 
-- [ ] **Bước 2:** Thêm cấu hình, `propsOnCam` (duyệt ô từ `floor((camX - r)/cell)` tới `floor((camX + VW + r)/cell)`, tương tự trục Y; vị trí trong ô = `cx*cell + h%(cell-60) + 30`).
-- [ ] **Bước 3:** Trong `drawLights`, gom đèn thế giới SAU vùng nổ và TRƯỚC tinh anh (ưu tiên: người chơi → boss → vùng nổ → đèn thế giới → tinh anh → đạn). Độ đậm = `1 + flick × (sin(t·flickHz + h) + sin(t·flickHz·1.7 + h·3)) / 2`; `calm()` thì = 1.
-- [ ] **Bước 4:** `drawProps` vẽ hình nguồn sáng ngay sau `drawDecals` (dưới quái, như đồ trang trí). Vẽ cả khi `!lightOn()` (vẫn là đồ trang trí), chỉ đèn là tắt.
-- [ ] **Bước 5:** `renderAttract` (menu) gọi `drawProps` + đèn với đợt 1 — kiểm không đụng `G.player`/`G.enemies` chưa có.
-- [ ] **Bước 6:** `runChecks()` → 76/76; V7-1 (độ tối góc màn 30–75%) vẫn đạt — nếu góc sáng quá vì có đèn, đặt người chơi ở toạ độ không có đèn trong phép thử V7-1, KHÔNG nới tiêu chí.
-- [ ] **Bước 7:** `perf()` ≤ +0,6 ms (mỗi khung chỉ thêm ~4–9 đèn và hình). Chụp 4 ảnh đợt.
-- [ ] **Bước 8:** VER `v8c`, commit `V8 G3: nguồn sáng cố định theo đợt (nến, lò tử linh, khe đất, đống than)`.
+- [x] **Bước 2:** Thêm cấu hình, `propsOnCam` (duyệt ô từ `floor((camX - r)/cell)` tới `floor((camX + VW + r)/cell)`, tương tự trục Y; vị trí trong ô = `cx*cell + h%(cell-60) + 30`).
+- [x] **Bước 3:** Trong `drawLights`, gom đèn thế giới SAU vùng nổ và TRƯỚC tinh anh (ưu tiên: người chơi → boss → vùng nổ → đèn thế giới → tinh anh → đạn). Độ đậm = `1 + flick × (sin(t·flickHz + h) + sin(t·flickHz·1.7 + h·3)) / 2`; `calm()` thì = 1.
+- [x] **Bước 4:** `drawProps` vẽ hình nguồn sáng ngay sau `drawDecals` (dưới quái, như đồ trang trí). Vẽ cả khi `!lightOn()` (vẫn là đồ trang trí), chỉ đèn là tắt.
+- [x] **Bước 5:** `renderAttract` (menu) gọi `drawProps` + đèn với đợt 1 — kiểm không đụng `G.player`/`G.enemies` chưa có.
+- [x] **Bước 6:** `runChecks()` → 76/76; V7-1 (độ tối góc màn 30–75%) vẫn đạt — nếu góc sáng quá vì có đèn, đặt người chơi ở toạ độ không có đèn trong phép thử V7-1, KHÔNG nới tiêu chí.
+- [x] **Bước 7:** `perf()` ≤ +0,6 ms (mỗi khung chỉ thêm ~4–9 đèn và hình). Chụp 4 ảnh đợt.
+- [x] **Bước 8:** VER `v8c`, commit `V8 G3: nguồn sáng cố định theo đợt (nến, lò tử linh, khe đất, đống than)`.
+
+**Kết quả G3** (22/11/2026, pane 1280×720 hiện, VER `v8h`; G3 làm sau cùng nên đếm 78 → 79): `runChecks()` 79/79. `V8-3` trước → sau: `không có propsOnCam` (trượt) → `đèn 2–6, cố định true, sắc độ ≥ 36.1°, tổng ≤ 7/80, lập loè 7, giảm loé 0, vô tận ok`. V7-1 vẫn đạt không cần dời người chơi (góc 0.56); V8-1 đạt 42% (nền 19.7 — có một đèn gần vòng đo nên nền sáng hơn 12 của trước). Lệch kế hoạch: (1) **asset thay hình code**: người dùng duyệt 2 gói CC0 — 24 khung của Niji "DungeonTileset II Extended" (`tools/niji_tiles.txt`, đo bằng Pillow): đợt 1 nến trên trụ đá `niji_candle_f0–7`, đợt 2 đuốc `niji_torch_f0–7` nhuộm tím (`SPRITES.propTorch.tint`), đợt 3–4 ngọn lửa `niji_flame_f0–7` trên đế vẽ code `PROP_BASE.vent` (khe đất) / `pyre` (đống than, lửa ×1.4); gói 0x72 gốc không cần khung mới (đài phun là mảnh tường, không hợp nền); thiếu ảnh thì `SHAPES.propCandle/propTorch/propFlame` (thay `PROP_DRAW`, dùng luôn đường lùi của `draw()`). `tools/build_atlas.py` nhận thêm 2 tham số (ảnh + danh sách khung gói thứ hai), khung mới xếp SAU khung cũ: 134 → 158 khung, atlas vẫn 256×512, 134 khung cũ trùng từng điểm ảnh và toạ độ (so với `tools/backup/atlas.v8g.png/.js`); `ATLAS_SRC` tag `g7` → `g8`. (2) **phân bố**: `chance` 0.45 / ô 380 không giữ được "luôn ≥ 1" (mô phỏng 20 000 vị trí: 18% khung không có đèn) → mỗi ô 400 có đúng 1 đèn ở giữa ô ± `jit` 60 (`CFG.props = { cell: 400, jit: 60, flick, flickHz, r, menuA }`, bỏ `chance`); mô phỏng: 1–6 đèn mỗi khung, trung bình ~3. (3) **màu**: nến `#ffcf7a` chỉ lệch 33.3° và khe `#ffc04a` 34.1° → `#ffd880` (36.5°), `#ffc850` (36.1°); lò `#b583ff`, than `#ffd060` giữ. (4) độ sáng đèn = 1 − flick·(1 − sóng), giảm loé đứng yên ở 1 − flick (thay "1 + flick·…" vì `globalAlpha` > 1 bị cắt); V8-3 đo lập loè bằng điểm ảnh lightmap lệch 0.6 bán kính khỏi tâm đèn (tâm bão hoà 255) và đi 2000 đơn vị ở cả 4 đợt. (5) menu không có lightmap nên đèn ở menu là quầng cộng sáng `menuA` 0.3 (chỉ khi `lightOn()`), không đụng `G`. Bỏ ảnh/sprite đèn → 7 đợt + menu vẽ bằng hình code không lỗi. `sw.js` mạng trước + URL ảnh có `?v=g8` nên không cần đổi kho `nfs-v1`. `perf()` cùng phiên, xen kẽ tắt/bật đèn (đợt 1): 1.5/1.4/1.3 → 1.3/1.3/1.3 ms (trung vị 1.4 → 1.3, không đổi). Ảnh `tools/shots/v8-after-wave1..4.png` chụp lại (cảnh Task 0): đèn là đồ trang trí nhỏ, vũng sáng ấm/tím nhạt, không giống vùng nổ đỏ.
 
 ---
 

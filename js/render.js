@@ -337,7 +337,16 @@ const SHAPES = {
   bomber:     scaledShape('bat', 1.3),
   splitter:   scaledShape('slime', 1.6),
   charger:    scaledShape('skeleton', 1.4),
+  // đèn thế giới (V8 G3) khi thiếu ảnh: (x, y) là chân, ngọn lửa đổi khung theo e.anim
+  propCandle(c, e) { c.fillStyle = '#3b3648'; c.fillRect(e.x - 5, e.y - 12, 10, 12); c.fillStyle = '#e8dcc0'; c.fillRect(e.x - 2, e.y - 16, 4, 4); propFire(c, e.x, e.y - 16, e.anim); },
+  propTorch(c, e) { c.fillStyle = '#4a4458'; c.fillRect(e.x - 1, e.y - 12, 2, 12); c.fillRect(e.x - 4, e.y - 14, 8, 3); propFire(c, e.x, e.y - 14, e.anim, '#b583ff', '#ecdcff'); },
+  propFlame(c, e) { propFire(c, e.x, e.y, e.anim); },
 };
+function propFire(c, x, y, t, out = '#ffa040', core = '#fff0a0') {
+  const f = Math.floor(t * 10) % 3;
+  c.fillStyle = out; c.fillRect(x - 2, y - 5 - f, 4, 5 + f);
+  c.fillStyle = core; c.fillRect(x - 1, y - 3, 2, 3);
+}
 function flaskShape(c, g, color) {
   const y = g.y + Math.sin(g.anim * 4) * 1.5;
   c.fillStyle = '#d8d8e8'; c.fillRect(g.x - 2, y - 8, 4, 4);
@@ -624,6 +633,44 @@ function drawWeather(camX, camY, t, wi) {
   ctx.globalAlpha = 1;
 }
 
+/* Đèn thế giới (V8 G3): mỗi ô lưới CFG.props.cell có 1 nguồn sáng ở giữa ô ± jit, vị trí theo hash(ô) — cố định, không Math.random.
+   Hình: sprite WAVE_DEFS[i].props.kind (thiếu ảnh → SHAPES) trên đế vẽ code PROP_BASE; đèn thêm trong drawLights. */
+const PROP_BASE = {
+  vent(c, x, y) { c.fillStyle = '#0a0604'; ellipse(c, x, y, 9, 3.5); c.fillStyle = 'rgba(255,170,60,0.45)'; ellipse(c, x, y - 0.5, 6, 2); },   // khe đất
+  pyre(c, x, y) {   // đống than: 2 khúc củi + than hồng
+    c.fillStyle = '#2a1a12'; c.fillRect(x - 10, y - 3, 20, 3); c.fillRect(x - 7, y - 5, 14, 2);
+    c.fillStyle = '#ff9a3a'; c.fillRect(x - 6, y - 2, 2, 1); c.fillRect(x + 3, y - 3, 2, 1); c.fillRect(x - 1, y - 1, 2, 1);
+  },
+};
+const propList = [], propTmp = { x: 0, y: 0, r: 6, anim: 0, face: 1, sc: 1 };
+// Các nguồn sáng có chân trong vùng nhìn + lề m: mảng {x, y, h} (h = hash của ô, dùng cho pha lập loè/hoạt ảnh)
+function propsOnCam(camX, camY, out, m) {
+  const C = CFG.props, S = C.cell, J = 2 * C.jit + 1; out.length = 0;
+  for (let cx = Math.floor((camX - m) / S), cx1 = Math.floor((camX + VW + m) / S); cx <= cx1; cx++)
+    for (let cy = Math.floor((camY - m) / S), cy1 = Math.floor((camY + VH + m) / S); cy <= cy1; cy++) {
+      const h = hash(cx + 7919, cy + 104729), x = cx * S + S / 2 + h % J - C.jit, y = cy * S + S / 2 + (h >>> 12) % J - C.jit;
+      if (x > camX - m && x < camX + VW + m && y > camY - m && y < camY + VH + m) out.push({ x, y, h });
+    }
+  return out;
+}
+// Độ sáng một đèn: 1 − flick·(1 − trung bình 2 sóng sin lệch pha theo h); giảm loé → đứng yên ở 1 − flick
+function propA(h, t) {
+  const C = CFG.props; if (calm()) return 1 - C.flick;
+  const w = t * C.flickHz, ph = h % 628 / 100;
+  return 1 - C.flick * (1 - (Math.sin(w + ph) + Math.sin(w * 1.7 + ph * 3)) / 2);
+}
+function drawProps(camX, camY, wi, t) {
+  const pd = WAVE_DEFS[wi].props; if (!pd) return;
+  const o = propTmp, spr = Assets.get(pd.kind);
+  o.sc = pd.sc || 1;
+  for (const q of propsOnCam(camX, camY, propList, 32)) {   // lề 32: sprite cao tới ~30 đơn vị phía trên chân
+    o.x = q.x; o.y = q.y - o.r * 0.85;   // drawShadow đặt bóng ở y + r·0.85 = chân
+    if (pd.base) PROP_BASE[pd.base](ctx, q.x, q.y); else if (spr) drawShadow(o);
+    o.y = q.y; o.anim = t + (q.h >>> 8) % 97 / 31; o.face = q.h & 1 ? 1 : -1;
+    draw(ctx, o, pd.kind);
+  }
+}
+
 /* Lớp phát sáng: quầng sáng vẽ sẵn (64×64), cộng sáng một lượt dưới mọi vật. Có giới hạn số quầng mỗi khung. */
 const GLOW_COLORS = { pink: '255,77,196', purple: '200,107,255', cyan: '127,212,255', gold: '255,209,102', green: '92,255,157', red: '255,59,92' };
 const GLOWS = {};
@@ -674,7 +721,7 @@ function drawLights(camX, camY) {
   }
   lightList.length = 0; eliteTmp.length = 0;
   const onCam = (x, y, r) => x + r > camX && x - r < camX + VW && y + r > camY && y - r < camY + VH;
-  // Gom đèn theo thứ tự ưu tiên (người chơi → boss → vùng nổ → tinh anh → đạn; bỏ đèn ngọc để giữ ngân sách khung hình)
+  // Gom đèn theo thứ tự ưu tiên (người chơi → boss → vùng nổ → đèn thế giới → tinh anh → đạn; bỏ đèn ngọc để giữ ngân sách khung hình)
   if (p) addLight(p.x, p.y, L.player, L.playerCol);
   for (let i = 0, it = G.enemies.items; i < it.length; i++) {
     const e = it[i]; if (e.dead) continue;
@@ -687,6 +734,8 @@ function drawLights(camX, camY) {
     const z = G.zones[i], zr = z.r * L.zone;
     if (onCam(z.x, z.y, zr)) addLight(z.x, z.y, zr, L.zoneCol, clamp(0.5 + 0.5 * (1 - z.t / (z.max || 1)), 0, 1));
   }
+  const pd = WAVE_DEFS[waveIdx()].props;   // đèn thế giới (V8 G3): sau vùng nổ, trước tinh anh
+  if (pd) { const r = CFG.props.r * pd.k; for (const q of propsOnCam(camX, camY, propList, r)) addLight(q.x, q.y - 6, r, pd.col, propA(q.h, G.t)); }
   for (let i = 0; i < eliteTmp.length; i++) {
     const e = eliteTmp[i];
     if (onCam(e.x, e.y, L.elite)) addLight(e.x, e.y, L.elite, L.eliteCol);
@@ -1238,6 +1287,13 @@ function renderAttract(dt) {
   const camX = snapPx(cx - VW / 2), camY = snapPx(cy - VH / 2);
   ctx.setTransform(ZOOM, 0, 0, ZOOM, -camX * ZOOM, -camY * ZOOM);
   tileGround(groundFor(0), camX, camY);
+  const pd = WAVE_DEFS[0].props, PC = CFG.props;
+  if (pd && lightOn()) {   // menu không có lightmap: đèn thế giới là quầng cộng sáng nhẹ
+    const r = PC.r * pd.k; ctx.globalCompositeOperation = 'lighter';
+    for (const q of propsOnCam(camX, camY, propList, r)) { ctx.globalAlpha = PC.menuA * propA(q.h, t); ctx.drawImage(lightImg(pd.col), q.x - r, q.y - 6 - r, r * 2, r * 2); }
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  }
+  drawProps(camX, camY, 0, t);
   const L = attract.list; L.length = 0; for (const m of attract.mobs) L.push(m); L.sort(byY);
   for (const m of L) { if (Assets.get(m.type)) drawShadow(m); draw(ctx, m, m.type); }
   ctx.setTransform(SCREEN, 0, 0, SCREEN, 0, 0);
@@ -1256,6 +1312,7 @@ function renderScene() {
   ctx.setTransform(ZOOM, 0, 0, ZOOM, -camX * ZOOM, -camY * ZOOM);
   drawGround(camX, camY);
   if (G.decals.length) drawDecals();
+  drawProps(camX, camY, waveIdx(), G.t);   // đồ trang trí: vẽ cả khi tắt ánh sáng đêm, chỉ đèn của nó tắt
   const x0 = camX - 60, x1 = camX + VW + 60, y0 = camY - 60, y1 = camY + VH + 60;
   const vis = o => o.x > x0 && o.x < x1 && o.y > y0 && o.y < y1;
   drawAura(p);

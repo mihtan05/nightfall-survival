@@ -1,0 +1,26 @@
+# Khung lấy từ gói Niji "DungeonTileset II Extended" v1.1 (CC0), dungeontileset-extended.png 1024x1024.
+# Dòng: tên x y rộng cao (px, đáy các khung trong một hàng thẳng hàng). Tự đo bằng Pillow (khung bao điểm ảnh, ô 16 px).
+niji_flame_f0 128 339 16 13
+niji_flame_f1 144 339 16 13
+niji_flame_f2 160 339 16 13
+niji_flame_f3 176 339 16 13
+niji_flame_f4 192 339 16 13
+niji_flame_f5 208 339 16 13
+niji_flame_f6 224 339 16 13
+niji_flame_f7 240 339 16 13
+niji_torch_f0 128 355 16 19
+niji_torch_f1 144 355 16 19
+niji_torch_f2 160 355 16 19
+niji_torch_f3 176 355 16 19
+niji_torch_f4 192 355 16 19
+niji_torch_f5 208 355 16 19
+niji_torch_f6 224 355 16 19
+niji_torch_f7 240 355 16 19
+niji_candle_f0 128 403 16 21
+niji_candle_f1 144 403 16 21
+niji_candle_f2 160 403 16 21
+niji_candle_f3 176 403 16 21
+niji_candle_f4 192 403 16 21
+niji_candle_f5 208 403 16 21
+niji_candle_f6 224 403 16 21
+niji_candle_f7 240 403 16 21

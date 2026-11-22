@@ -73,9 +73,13 @@ function lookBullet(b, w) { b.tier = weaponTier(w); b.lv = lookStep(w); b.fxk = 
 // Loé nhỏ ở chỗ bắn khi vũ khí hồi chiêu khai hoả: người chơi biết vũ khí nào vừa bắn
 function castCue(w, x, y) { const L = weaponLook(w), f = addFx('cast', x, y, 0.14); f.color = L.col; f.r = 3 + L.size; }
 /* Vết trên nền (cháy sém của sét, nứt đất của sóng xung kích): danh sách nhỏ có giới hạn, vẽ ngay sau nền, mờ dần */
-function addDecal(kind, x, y, r, life) {
-  const D = G.decals; if (D.length >= CFG.decals.cap) D.shift(); // đầy thì bỏ vết cũ nhất
-  D.push({ kind, x, y, r, rot: Math.random() * TAU, life, max: life });
+function addDecal(kind, x, y, r, life, col) {
+  // vết loang ('stain', G4) và vết sét/sóng đếm riêng: đầy loại nào thì bỏ vết cũ nhất của chính loại đó
+  const D = G.decals, st = kind === 'stain', cap = st ? CFG.remains.cap : CFG.decals.cap;
+  let n = 0, old = -1;
+  for (let i = 0; i < D.length; i++) if ((D[i].kind === 'stain') === st) { if (old < 0) old = i; n++; }
+  if (n >= cap) D.splice(old, 1);
+  D.push({ kind, x, y, r, rot: Math.random() * TAU, life, max: life, col });
 }
 function updateDecals(dt) { const D = G.decals; for (let i = D.length - 1; i >= 0; i--) if ((D[i].life -= dt) <= 0) D.splice(i, 1); }
 function newPlayer(start = 'bolt') {
@@ -762,7 +766,8 @@ function killEnemy(e) {
   // Xác quái co lại + mờ dần (vẽ trong drawFx), logic thì bỏ quái ngay
   const df = addFx('die', e.x, e.y, e.boss ? 0.6 : 0.22);
   df.kind = e.type; df.face = e.face; df.anim = e.anim; df.r = e.r;
-  const color = ENEMIES[e.type].color;
+  const color = ENEMIES[e.type].color, RM = CFG.remains;
+  if (!e.boss && Math.random() < RM.chance) addDecal('stain', e.x, e.y + e.r * 0.5, rand(RM.r[0], RM.r[1]) * (e.sc || 1), RM.life, color);
   if (e.boss) {
     playFx('bigBoom', e.x, e.y + e.r * 0.5);
     burst(e.x, e.y, color, 60, 260, 4, 0.9); burst(e.x, e.y, '#ffd166', 30, 200, 3, 0.8);

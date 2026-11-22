@@ -832,10 +832,19 @@ function drawKnifeLook(b, after) {
 const DECAL_IMG = {};
 function decalImg(kind) {
   let c = DECAL_IMG[kind]; if (c) return c;
-  c = DECAL_IMG[kind] = document.createElement('canvas'); c.width = c.height = 256;
+  const S = kind.startsWith('stain:') ? 64 : 256;   // vết loang (G4) nhỏ, mỗi màu quái một ảnh
+  c = DECAL_IMG[kind] = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
-  g.translate(0, 128 - 128 * 0.62); g.scale(1, 0.62);   // dẹt theo phối cảnh mặt đất, vẽ sẵn (khỏi xoay/co lúc vẽ)
-  if (kind === 'scorch') {
+  g.translate(0, S / 2 - S / 2 * 0.62); g.scale(1, 0.62);   // dẹt theo phối cảnh mặt đất, vẽ sẵn (khỏi xoay/co lúc vẽ)
+  if (S === 64) { // stain: vài vũng tròn mềm chồng nhau, màu quái tối đi CFG.remains.dark
+    const k = 1 - CFG.remains.dark, rgb = kind.slice(6).match(/\w\w/g).map(h => Math.round(parseInt(h, 16) * k)).join(',');
+    for (let i = 0; i < 4; i++) {
+      const x = 32 + (i ? (hash(i, 13) % 24) - 12 : 0), y = 32 + (i ? (hash(i, 17) % 16) - 8 : 0), r = i ? 10 + hash(i, 19) % 8 : 22;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(${rgb},0.7)`); gr.addColorStop(0.6, `rgba(${rgb},0.45)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    }
+  } else if (kind === 'scorch') {
     const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
     gr.addColorStop(0, 'rgba(8,5,6,0.75)'); gr.addColorStop(0.45, 'rgba(14,8,8,0.5)'); gr.addColorStop(1, 'rgba(14,8,8,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
@@ -858,11 +867,13 @@ function decalImg(kind) {
   return c;
 }
 function drawDecals() {
+  const RM = CFG.remains, sa = SETTINGS.clear ? RM.aClear : RM.a;
   for (const d of G.decals) {
-    ctx.globalAlpha = clamp(d.life / d.max * 1.5, 0, 1);
-    const img = decalImg(d.kind), h = d.r * 0.62;
-    if (d.rot > Math.PI) { ctx.save(); ctx.translate(d.x, d.y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 128 - 128 * 0.62, 256, 256 * 0.62, -d.r, -h, d.r * 2, h * 2); ctx.restore(); } // lật ngang cho đỡ lặp
-    else ctx.drawImage(img, 0, 128 - 128 * 0.62, 256, 256 * 0.62, d.x - d.r, d.y - h, d.r * 2, h * 2);
+    const st = d.kind === 'stain';
+    ctx.globalAlpha = clamp(d.life / d.max * 1.5, 0, 1) * (st ? sa : 1);
+    const img = decalImg(st ? 'stain:' + d.col : d.kind), h = d.r * 0.62, S = img.width, sy = S / 2 - S / 2 * 0.62;
+    if (d.rot > Math.PI) { ctx.save(); ctx.translate(d.x, d.y); ctx.scale(-1, 1); ctx.drawImage(img, 0, sy, S, S * 0.62, -d.r, -h, d.r * 2, h * 2); ctx.restore(); } // lật ngang cho đỡ lặp
+    else ctx.drawImage(img, 0, sy, S, S * 0.62, d.x - d.r, d.y - h, d.r * 2, h * 2);
   }
   ctx.globalAlpha = 1;
 }

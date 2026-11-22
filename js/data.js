@@ -395,6 +395,9 @@ const WEAPONS = {
    Bậc 1 = cấp 1–3, bậc 2 = cấp 4–7, bậc 3 = cấp 8, bậc 4 = đã tiến hoá. Ranh giới ở CFG.tiers (cấp bắt đầu bậc 2 / bậc 3). */
 CFG.tiers = { t2: 4, t3: 8 };
 CFG.decals = { cap: 40 };            // vết trên nền (cháy sém, nứt đất): tối đa bấy nhiêu cùng lúc, cũ nhất bị bỏ trước
+// V8 G4: vết loang khi quái thường chết (màu quái tối đi `dark`) — giới hạn riêng `cap`, không đẩy vết sét/sóng ra;
+// `chance` mỗi con, sống `life` giây, bán kính r × e.sc, độ đậm a (Dễ nhìn: aClear)
+CFG.remains = { cap: 50, chance: 0.4, life: 7, r: [9, 14], a: 0.55, aClear: 0.3, dark: 0.55 };
 CFG.upgradeCue = { ring: 70, ringLife: 0.45 }; // lúc chọn thẻ vũ khí: vòng màu vũ khí quanh người (bán kính, giây)
 /* Bảng hình dáng: mỗi vũ khí một màu chủ đạo (col, dùng cho vòng lên cấp + loé khi bắn) và 4 bậc. Trường chung:
      col/col2 = màu chính/phụ · trail = độ dài vệt (đơn vị thế giới) · grow = phần cộng thêm cho MỖI cấp trong cùng bậc

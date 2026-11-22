@@ -312,7 +312,7 @@ window.runChecks = async function () {
   ok('V5-3', '3.1 Chọn thẻ nâng vũ khí → bắn ngay trong 1 bước', G.bullets.items.length > nb0 && G.player.levels.bolt === 2, `${nb0} → ${G.bullets.items.length} tiễn`);
   fresh(); G.player.weapons = {}; G.player.levels = {}; v.give('lightning', 8);
   for (let i = 0; i < 20; i++) { const e = spawnEnemy('skeleton', P().x + rand(-100, 100), P().y + rand(-80, 80)); e.speed = 0; e.hp = e.maxHp = 1e6; }
-  let decMax = 0; for (let i = 0; i < 300; i++) { v.tick(0.05); decMax = Math.max(decMax, G.decals.length); for (let k = 0; k < 5; k++) addDecal('scorch', 0, 0, 10, 5); }
+  let decMax = 0; for (let i = 0; i < 300; i++) { v.tick(0.05); decMax = Math.max(decMax, G.decals.filter(d => d.kind !== 'stain').length);for (let k = 0; k < 5; k++) addDecal('scorch', 0, 0, 10, 5); }
   ok('V5-3', '3.2 Vết trên nền có giới hạn', decMax <= CFG.decals.cap && decMax > 0, `${decMax}/${CFG.decals.cap}`);
   // ---------- V5 Phase 4: cột mốc + thẻ hiện lộ trình ----------
   const EXP8 = {"bolt":{"dmg":15.679999999999998,"cd":0.5599999999999999,"count":4,"pierce":3,"speed":504,"life":1.3,"r":5,"range":520},"orbit":{"dmg":16.561999999999998,"count":5,"radius":74.39999999999999,"spin":4.5,"r":8,"hitCd":0.45,"ang":0},"lightning":{"dmg":27.299999999999997,"cd":1.87,"count":4,"aoe":44.8},"knife":{"dmg":10.92,"cd":0.44000000000000006,"count":4,"pierce":4,"speed":540,"life":0.8,"r":4},"aura":{"dmg":9,"radius":103.67999999999999,"tick":0.425,"slow":0.35,"pulse":0},"nova":{"dmg":32.76,"cd":2.975,"maxR":171.875,"kb":5.25,"count":2}}; // trạng thái cấp 8 đo TRƯỚC khi đổi thứ tự cấp (C3: orbit dmg gốc 6→7, aura dmg 3→4 + bán kính 55→60 — đo lại)
@@ -738,6 +738,22 @@ window.runChecks = async function () {
     SETTINGS.light = lightWas; SETTINGS.noFlash = noFlashWas; SETTINGS.dmgNum = numWas;
     ok('V8-2', '2.1 Hạ 60 quái cùng lúc: điểm ảnh trắng ≤ 4% màn; 60 đòn 33 sát nhau thành ≤ 15 số',
       ws <= 0.04 && nums <= 15, `trắng ${(ws * 100).toFixed(1)}%, số ${nums}`);
+  }
+  { // ---- V8-4 (G4): vết loang khi quái chết — giới hạn riêng, tự tan ----
+    const R = CFG.remains || {}, chanceWas = R.chance, stains = () => G.decals.filter(d => d.kind === 'stain').length;
+    fresh(); v.skipTo(2); G.enemies.clear(); G.decals.length = 0; R.chance = 1;   // chắc chắn có vết để phép thử không đạt nhờ may
+    addDecal('scorch', P().x, P().y, 20, 99); const scorch = G.decals[0];
+    for (let i = 0; i < 200; i++) killEnemy(spawnEnemy('skeleton', P().x + rand(-150, 150), P().y + rand(-100, 100)));
+    const st = stains(), kept = G.decals.includes(scorch);
+    G.decals = G.decals.filter(d => d.kind !== 'stain');
+    const boss = spawnEnemy('bossZombie', P().x + 60, P().y), crate = spawnEnemy('crate', P().x - 60, P().y);
+    killEnemy(boss); killEnemy(crate); const bc = stains();
+    G.booms.length = 0; G.slowT = 0; G.boss = null; G.flashT = 0; G.enemies.clear(); G.gems.clear();
+    for (let i = 0; i < 10; i++) killEnemy(spawnEnemy('skeleton', P().x + i * 10, P().y + 40));
+    R.chance = 0; v.tick((R.life || 0) + 1); const left = stains();   // không sinh vết mới trong lúc chờ
+    R.chance = chanceWas; G.decals.length = 0;
+    ok('V8-4', '4.1 Hạ 200 quái: có vết loang, ≤ cap riêng, vết sét cũ vẫn còn; sau life + 1 giây hết vết; boss và thùng gỗ không để vết',
+      st > 0 && st <= R.cap && kept && bc === 0 && left === 0, `vết ${st}/${R.cap}, sét còn ${kept}, boss+thùng ${bc}, còn sau chờ ${left}`);
   }
   SFX.intensity = 0; SFX.ducked = false; SFX.lowMix = false; SFX.applyVolumes();
   G.enemies.clear(); G.boss = null; G.zones.length = 0;

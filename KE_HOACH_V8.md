@@ -203,11 +203,13 @@ const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d
 - `addDecal('stain', x, y, r, life)` thêm trường `d.col = ENEMIES[type].color`. Vết loại `'stain'` có giới hạn riêng `CFG.remains.cap` (đếm riêng; đầy thì bỏ vết `'stain'` cũ nhất, KHÔNG bỏ cháy sém/nứt đất). `CFG.decals.cap` vẫn áp cho 2 loại cũ.
 - `decalImg('stain:' + col)` — loang dẹt 64×64 (vài hình elip chồng, màu quái tối đi 55%), lưu theo màu (≤ ~10 màu).
 
-- [ ] **Bước 1: Viết `V8-4` (trượt trước):** hạ 200 quái liên tiếp → số vết `'stain'` ≤ `cap`, vết sét đã có trước đó vẫn còn; `__vs.tick(CFG.remains.life + 1)` → hết vết `'stain'`; boss và thùng gỗ (`crate`) không để vết.
-- [ ] **Bước 2:** Viết phần game: trong `killEnemy`, sau `addFx('die', …)`, nếu `!e.boss && Math.random() < chance` thì `addDecal('stain', …)` với `r` ngẫu nhiên trong khoảng × `e.sc || 1`.
-- [ ] **Bước 3:** Phần vẽ: `drawDecals` đọc `d.col` để lấy ảnh; độ đậm × (`SETTINGS.clear ? aClear : a`).
-- [ ] **Bước 4:** `runChecks()` → 77/77, `perf()` ≤ +0,6 ms. Vượt: hạ `cap` 50 → 30.
-- [ ] **Bước 5:** VER `v8d`, commit `V8 G4: vết loang khi quái chết (giới hạn riêng, tự tan)`.
+- [x] **Bước 1: Viết `V8-4` (trượt trước):** hạ 200 quái liên tiếp → số vết `'stain'` ≤ `cap`, vết sét đã có trước đó vẫn còn; `__vs.tick(CFG.remains.life + 1)` → hết vết `'stain'`; boss và thùng gỗ (`crate`) không để vết.
+- [x] **Bước 2:** Viết phần game: trong `killEnemy`, sau `addFx('die', …)`, nếu `!e.boss && Math.random() < chance` thì `addDecal('stain', …)` với `r` ngẫu nhiên trong khoảng × `e.sc || 1`.
+- [x] **Bước 3:** Phần vẽ: `drawDecals` đọc `d.col` để lấy ảnh; độ đậm × (`SETTINGS.clear ? aClear : a`).
+- [x] **Bước 4:** `runChecks()` → 77/77, `perf()` ≤ +0,6 ms. Vượt: hạ `cap` 50 → 30.
+- [x] **Bước 5:** VER `v8d`, commit `V8 G4: vết loang khi quái chết (giới hạn riêng, tự tan)`.
+
+**Kết quả G4** (22/11/2026, pane 1280×720 hiện, G3 bỏ qua chờ người dùng nên đếm 75 → 76): `runChecks()` 76/76. `V8-4` trước → sau: `vết 0/undefined` (trượt) → `vết 50/50, sét còn true, boss+thùng 0, còn sau chờ 0`. Lệch kế hoạch: (1) phép thử đặt `CFG.remains.chance = 1` khi hạ 200 quái và thêm điều kiện "có vết" (`> 0`) — bản phác chỉ kiểm `≤ cap` nên đạt sẵn khi chưa làm gì; lúc chờ `life + 1` giây đặt `chance = 0` để quái do vũ khí hạ trong lúc `tick` không sinh vết mới; (2) `addDecal(kind, x, y, r, life, col)` đếm riêng 2 nhóm trong cùng `G.decals` (đầy nhóm nào bỏ vết cũ nhất của nhóm đó); V5-3 (giới hạn vết sét) nay chỉ đếm vết không phải `'stain'`; (3) vết đặt ở chân quái (`e.y + e.r·0.5`), ảnh 64×64 theo màu (`'stain:#rrggbb'`), `drawDecals` tính vùng cắt theo `img.width` nên dùng chung cho ảnh 256 cũ; độ tối `CFG.remains.dark` 0.55 nằm trong `data.js`. Vết tối + mờ (đỉnh ≈ 0.7 × 0.55) nên không cần kiểm luật màu V7. `perf()` cùng phiên, xen kẽ tắt/bật vết (`chance` 0 / 0.4): 1.2/1.1/1.0 → 1.2/1.2/1.1 ms (trung vị 1.1 → 1.2, +0.1); ép 50 vết: 1.2 ms.
 
 ---
 

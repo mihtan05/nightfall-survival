@@ -262,13 +262,15 @@ const hdist = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(d
 
 ### Task 7: Nghiệm thu chung và bàn giao
 
-- [ ] `runChecks()` 79/79 (V6-2/V6-3 với pane hiện).
-- [ ] `perf()` 3 lần: tổng ≤ mốc Task 0 + 2,0 ms. Khung dài nhất (phím `F`) < 33 ms trong 60 giây đợt 4 với 300 quái.
-- [ ] Tắt "Ánh sáng đêm" → cảnh giống V7 tắt đèn (không có ánh trăng/đèn thế giới/sương lơ lửng trên nền sáng).
-- [ ] Bật "Giảm loé" → không lập loè, không bóp-giãn, xác không nháy.
-- [ ] `file://` (bấm đúp `index.html`): vào ván, qua 1 đợt, không lỗi trong `#errBox`.
-- [ ] Bộ ảnh trước/sau 4 đợt + ảnh hạ hàng loạt gửi người dùng.
-- [ ] Cập nhật `CLAUDE.md`: dòng `KE_HOACH_V8.md` (đã xong, VER), tên hàm/cấu hình mới.
+- [x] `runChecks()` 79/79 (V6-2/V6-3 với pane hiện).
+- [x] `perf()` 3 lần: tổng ≤ mốc Task 0 + 2,0 ms. Khung dài nhất (phím `F`) < 33 ms trong 60 giây đợt 4 với 300 quái.
+- [x] Tắt "Ánh sáng đêm" → cảnh giống V7 tắt đèn (không có ánh trăng/đèn thế giới/sương lơ lửng trên nền sáng).
+- [x] Bật "Giảm loé" → không lập loè, không bóp-giãn, xác không nháy.
+- [ ] `file://` (bấm đúp `index.html`): vào ván, qua 1 đợt, không lỗi trong `#errBox`. — CHƯA KIỂM ĐƯỢC (xem Kết quả).
+- [x] Bộ ảnh trước/sau 4 đợt + ảnh hạ hàng loạt gửi người dùng.
+- [x] Cập nhật `CLAUDE.md`: dòng `KE_HOACH_V8.md` (đã xong, VER), tên hàm/cấu hình mới.
+
+**Kết quả Task 7** (22/11/2026, pane 1280×720 hiện, VER `v8h`): `runChecks()` 79/79 (V6-2/V6-3 đạt, V8-1 46%, V8-2 trắng 1.4% / 12 số). `perf()` 3 lần, mỗi lần dọn quái trước để luôn 300 con (bản gốc cộng dồn: 300 → 600 → 690 quái vì đang chọn thẻ nên `tick` không chạy, ra 1.3/3.1/2.9 ms): 1.2/1.2/1.1 ms → trung vị **1.2 ms = mốc Task 0** (+0.0 ≤ 2.0); xen kẽ tắt ánh sáng đêm: 0.7/0.7/0.7 ms. Khung dài nhất: 62 giây thật ở đợt 4, giữ 300 golem + 6 vũ khí cấp 8, tự chọn thẻ (19 lần lên cấp), đo khoảng cách rAF: 7129 khung, trung vị 8.3 ms, p99 16.8 ms, **dài nhất 25.1 ms**, 0 khung ≥ 33 ms (dòng phím `F` cùng lúc: dài nhất 25.1 ms; ánh sáng không tự tắt). Tắt ánh sáng đêm (ảnh chụp đợt 4): nền sáng như V7, không vũng sáng đèn, không sương/tro; còn đồ trang trí đèn (G3: chủ ý) và vết loang mờ (G4). Giảm loé: `propA` đứng yên 0.88 ở mọi thời điểm (thường 0.78–0.91); `draw()` bỏ `p.sq` khi `calm()` (V8-6: +0/+0 px); hạ 60 golem ở pha nháy: điểm ảnh trắng 0.61% → 0.75% (thường 0.43% → 1.78%), nhánh `'die'` đặt `flash = 0` khi `calm()`. `file://`: pane trình duyệt không mở thật `file://` — nó hiện trang dưới dạng ảnh tĩnh `data:` (script không chạy, `G` không có), nên CHƯA kiểm được; đã soát code: không lớp V8 nào dùng `getImageData`/`toDataURL`/`fetch` (chỉ `drawImage` + `globalCompositeOperation`), nên không vướng lỗi canvas "bẩn" trên `file://`. Cần người dùng bấm đúp `index.html` thử một lần. Không phát hiện lỗi cần sửa.
 
 ## Phiếu nhìn cho người thật (5 phút, sau Task 7)
 

@@ -1,7 +1,7 @@
 'use strict';
 /* Bot cân bằng (chỉ dùng khi phát triển, game KHÔNG nạp file này).
    Dùng trong console của trang game:
-     const s = document.createElement('script'); s.src = 'tools/balance-bot.js'; document.body.append(s);
+     const s = document.createElement('script'); s.src = '../tools/balance-bot.js'; document.body.append(s);
      runBot()            // chơi 1 ván giả lập (tối đa 15 phút game), trả về báo cáo
    Bot phản xạ 12 lần/giây: né quái, đạn, vùng nổ, vạch lao của boss; đi nhặt ngọc/vật phẩm/phá thùng khi an toàn;
    chọn thẻ: vũ khí trước, rồi bị động phòng thủ/sát thương. Đây là người chơi "khá", không phải người chơi giỏi. */

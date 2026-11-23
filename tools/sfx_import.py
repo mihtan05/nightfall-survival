@@ -90,7 +90,7 @@ def main():
     for ev, srcs in pick.items():
         names = []
         for src in srcs:
-            full = os.path.join(ROOT, src)
+            full = os.path.join(ROOT, 'src', src) if src.startswith(AS) else os.path.join(ROOT, src)
             name = game_name(src)
             if src.startswith(AS):
                 names.append(name if src.endswith('.ogg') else os.path.basename(src))
@@ -103,7 +103,7 @@ def main():
                 with open(full, 'rb') as f:
                     data = f.read()
                 fname = name + '.ogg'
-            changed = write_if_changed(os.path.join(ROOT, AS, fname), data)
+            changed = write_if_changed(os.path.join(ROOT, 'src', AS, fname), data)
             total += len(data)
             print('%-10s %-34s %6.1f kB%s' % (ev, fname, len(data) / 1024, '' if changed else ' (không đổi)'))
             names.append(name if fname.endswith('.ogg') else fname)

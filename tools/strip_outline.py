@@ -18,7 +18,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / 'assets' / 'atlas.png'
+SRC = ROOT / 'src' / 'assets' / 'atlas.png'
 BACKUP = ROOT / 'tools' / 'backup' / 'atlas.v4.png'
 RING_ALPHA = (150, 170)
 

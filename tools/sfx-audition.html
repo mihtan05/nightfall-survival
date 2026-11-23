@@ -45,9 +45,9 @@
   <textarea id="out" readonly></textarea>
 </main>
 <script>window.G = { state: 'menu' }; function updateMuteBtn() {}</script>
-<script src="../js/util.js"></script>
-<script src="../js/data.js"></script>
-<script src="../js/audio.js"></script>
+<script src="../src/js/util.js"></script>
+<script src="../src/js/data.js"></script>
+<script src="../src/js/audio.js"></script>
 <script src="sfx-candidates.js"></script>
 <script>
 'use strict';
@@ -60,7 +60,7 @@ function audio() {
 }
 // Giải mã bằng một context tạm (chưa cần người dùng bấm) để đo trước
 const probe = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
-const load = src => fetch('../' + src.split('/').map(encodeURIComponent).join('/')).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+const load = src => fetch('../' + (src.startsWith('assets/') ? 'src/' + src : src).split('/').map(encodeURIComponent).join('/')).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
   .then(b => new Promise((ok, fail) => probe.decodeAudioData(b, ok, fail)));
 const roleGain = (ev, src) => {
   const m = meta[src], A = CFG.audio; if (!m || !$('norm').checked) return 0.7;

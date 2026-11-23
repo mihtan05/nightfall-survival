@@ -1,7 +1,7 @@
 'use strict';
 /* Kiểm tra tự động các tiêu chí nghiệm thu Giai đoạn 0–6 (chỉ dùng khi phát triển, game KHÔNG nạp file này).
    Trong console của trang game (sau khi bấm "Bắt đầu" một lần để mở âm thanh):
-     const s = document.createElement('script'); s.src = 'tools/checks.js'; document.body.append(s);
+     const s = document.createElement('script'); s.src = '../tools/checks.js'; document.body.append(s);   // trang game ở /src/index.html
      await runChecks()   // trả về danh sách { giai_doan, tieu_chi, ok, chi_tiet }
    Những gì KHÔNG tự kiểm được (nghe âm thanh, cảm giác tay, khung hình thật khi pane bị ẩn) không có ở đây. */
 /* V6 (KE_HOACH_QA A2): mọi phần tử bấm được trong `root` đang hiện phải (a) cạnh ≥ 44 px (ô nhập nằm trong <label> thì đo cả nhãn),
@@ -694,7 +694,7 @@ window.runChecks = async function () {
     ok('V7-8', '8.1 Lướt lúc chưa hồi, đổi thẻ hết lượt, mua thiếu linh hồn đều có tiếng báo; mở tạm dừng có tiếng; ẩn tab thì âm thanh dừng hẳn, hiện lại chạy tiếp đúng một bản nhạc',
       dashDeny && rrDeny && buyDeny && pIn && susp && back && oneTrack, `lướt ${dashDeny}, đổi thẻ ${rrDeny}, mua ${buyDeny}, dừng ${pIn}, ẩn ${susp}, hiện ${back}`);
   }
-  if (!window.__loopSeam) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'tools/loop-seam.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.body.append(s); });
+  if (!window.__loopSeam) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '../tools/loop-seam.js?v=' + Date.now(); s.onload = res; s.onerror = rej; document.body.append(s); });
   { // ---- V7-9 (B5): điểm nối vòng lặp + chọn nhạc theo giai đoạn ----
     const sr = 8000, d = new Float32Array(sr * 2); for (let i = 0; i < d.length; i++) d[i] = Math.sin(2 * Math.PI * 50 * i / sr);
     const s = snapLoop(d, sr, 0.5037, 1.5061), at = t => d[Math.round(t * sr)], up = t => d[Math.round(t * sr) + 1] > d[Math.round(t * sr)];

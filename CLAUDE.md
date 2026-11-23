@@ -3,11 +3,12 @@
 Người dùng nói tiếng Việt; trả lời, chú thích code và chữ trong game đều bằng tiếng Việt.
 
 ## Chạy game
-- Đầy đủ âm thanh: chạy `python -m http.server 8765` trong thư mục này, mở http://localhost:8765/index.html (nhấn Ctrl+F5 sau khi sửa).
-- Bấm đúp `index.html` cũng chơi được, nhưng `fetch` bị chặn trên `file://` → âm tổng hợp, không có nhạc.
-- Sau mỗi lần sửa JS/CSS: đổi hằng `window.VER` ở đầu `index.html` (một chỗ duy nhất; bộ nạp `document.write` thêm `?v=` vào CSS và mọi file JS).
+- Đầy đủ âm thanh: chạy `python -m http.server 8765` ở GỐC repo (để trang game với tới `tools/`), mở http://localhost:8765/src/index.html (nhấn Ctrl+F5 sau khi sửa). Bộ kiểm/bot nạp bằng `../tools/checks.js`, `../tools/balance-bot.js`.
+- Bấm đúp `src/index.html` cũng chơi được, nhưng `fetch` bị chặn trên `file://` → âm tổng hợp, không có nhạc.
+- Sau mỗi lần sửa JS/CSS: đổi hằng `window.VER` ở đầu `src/index.html` (một chỗ duy nhất; bộ nạp `document.write` thêm `?v=` vào CSS và mọi file JS).
 
 ## Cấu trúc
+- **Toàn bộ game nằm trong `src/`** (`index.html`, `sw.js`, `manifest.webmanifest`, `js/`, `css/`, `assets/`). Mọi đường dẫn `index.html`, `js/…`, `css/…`, `assets/…`, `sw.js` trong file này tính từ `src/`. Gốc repo chỉ còn tài liệu (`*.md`), `tools/`, `vendor/` (không vào git), `vercel.json` (`outputDirectory: "src"` — Vercel chỉ phát hành `src/`). Script trong `tools/` ghi thẳng vào `src/assets`, `src/js`.
 - `index.html` — khung HUD + các bảng (menu, lên cấp, tạm dừng, kết thúc). Script nạp theo thứ tự (danh sách trong bộ nạp cuối `index.html`): util → atlas → fx-atlas → data → audio → render → game → input → icons → ui-hud → ui-menu → ui-cards → ui-end → ui (script thường, không phải ES module).
 - `js/data.js` — **mọi số cân bằng**: `CFG`, `SETTINGS`, `ENEMIES` (gồm 4 boss + `crate`), `BOSS_SKILLS`, `ITEMS`, `WAVE_DEFS` (4 đợt), `WEAPONS` (6 vũ khí × 8 cấp), `PASSIVES`, `SPRITES`/`ASSETS`, `FX_STYLE`.
 - `js/game.js` — trạng thái `G`, sinh quái, đợt quái (`updateWave`: fight → boss → rest → đợt sau; hạ boss đợt 4 là thắng), AI boss (`startSkill`/`updateBoss`, mọi kỹ năng có pha báo trước), vùng nổ (`zones`), vật phẩm (`pickItem`, `detonate`), thùng gỗ (`spawnCrate`), va chạm, `update(dt)`.

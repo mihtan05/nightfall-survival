@@ -75,12 +75,12 @@ def main(zip_path):
             atlas.paste(f, (rx, ry))
         meta[key] = {'id': eid, 'frames': [list(r) for r in rects], 'pivot': pivot, 'ms': ms, 'loop': loop}
 
-    (ROOT / 'assets').mkdir(exist_ok=True)
-    atlas.save(ROOT / 'assets' / 'fx.png', optimize=True)
+    (ROOT / 'src' / 'assets').mkdir(exist_ok=True)
+    atlas.save(ROOT / 'src' / 'assets' / 'fx.png', optimize=True)
     js = ("'use strict';\n// TỰ SINH bởi tools/build_fx_atlas.py — không sửa tay.\n"
           "// Nguồn: PVFX Foundry 1.0 (CC0), https://nerijs.itch.io/pvfx-foundry\n"
           f"const FX_ATLAS = {json.dumps({'src': 'assets/fx.png', 'size': atlas.size, 'fx': meta}, separators=(',', ':'))};\n")
-    (ROOT / 'js' / 'fx-atlas.js').write_text(js, encoding='utf-8')
+    (ROOT / 'src' / 'js' / 'fx-atlas.js').write_text(js, encoding='utf-8')
     total = sum(len(p[2]) for p in pieces)
     print(f'fx atlas {atlas.size}, {len(pieces)} hiệu ứng, {total} khung')
     for key, eid, frames, rects, pivot, ms, loop in placed:

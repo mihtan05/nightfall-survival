@@ -132,13 +132,13 @@ def main(atlas_path, list_path, extra_path=None, extra_list=None):
             frames[name] = [cx + PAD, cy + PAD, w, h]
         atlas.paste(cell, (cx, cy))
 
-    (ROOT / 'assets').mkdir(exist_ok=True)
-    atlas.save(ROOT / 'assets' / 'atlas.png', optimize=True)
+    (ROOT / 'src' / 'assets').mkdir(exist_ok=True)
+    atlas.save(ROOT / 'src' / 'assets' / 'atlas.png', optimize=True)
     js = ("'use strict';\n// TỰ SINH bởi tools/build_atlas.py — không sửa tay.\n"
           "// Nguồn: 0x72 DungeonTileset II v1.7 (CC0), https://0x72.itch.io/dungeontileset-ii\n"
           + ("// + Niji DungeonTileset II Extended v1.1 (CC0), https://nijikokun.itch.io/dungeontileset-ii-extended\n" if extra_path else "") +
           f"const ATLAS = {json.dumps({'src': 'assets/atlas.png', 'size': atlas.size, 'frames': frames}, separators=(',', ':'))};\n")
-    (ROOT / 'js' / 'atlas.js').write_text(js, encoding='utf-8')
+    (ROOT / 'src' / 'js' / 'atlas.js').write_text(js, encoding='utf-8')
     print(f'atlas {atlas.size}, {len(frames)} khung')
 
 
